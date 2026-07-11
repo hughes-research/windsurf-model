@@ -226,19 +226,33 @@ export function createSail(shape) {
     const band = 0.02 + 0.1 * (0.5 - 0.5 * Math.cos(2 * Math.PI * wrap));
     sUv.setXY(i, ...shape.uvFor(t, band));
   }
+  const SLEEVE_SQUASH = 0.68;
   const sleeve = new THREE.Mesh(sleeveGeo, new THREE.MeshPhysicalMaterial({
     map: shape.texture, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5,
   }));
-  sleeve.scale.z = 0.68; // teardrop fairing
+  sleeve.scale.z = SLEEVE_SQUASH; // teardrop fairing
   sleeve.name = 'sleeve';
   group.add(sleeve);
+  const sleeveBase = sleeveGeo.attributes.position.array.slice();
+  const SLEEVE_RINGS = 121, SLEEVE_RING_SIZE = 19; // taperedTube(…, 18, 120)
+
+  // Tip cap plugs the sleeve end and flexes with the mast (was static hardware).
+  const cap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.013, 10, 8),
+    new THREE.MeshStandardMaterial({ color: 0x151517, roughness: 0.35, metalness: 0.55 }),
+  );
+  const capBaseZ = 0.5 * interp1(SLEEVE_PTS, 1) * SLEEVE_SQUASH;
+  cap.position.set(luff(1) + 0.015, shape.height, capBaseZ);
+  group.add(cap);
 
   // Wind simulation. Each frame, three effects driven by the gust signal:
   //  - the leech opens and closes: the twist term is scaled by a slow gust
   //    response plus a sine wave traveling up the sail as gusts sweep across;
   //  - the panels breathe a little between battens (monofilm resists — small,
   //    and the batten damp field keeps the rod lines stiff);
-  //  - high-frequency leech flutter whose amplitude grows with wind strength.
+  //  - high-frequency leech flutter whose amplitude grows with wind strength;
+  //  - the mast flexes base-to-tip: a cantilever bend (∝ u²) sways the sleeve
+  //    and carries the whole sail with it — cloth, rods, and tip cap.
   const base = pos.slice();
   const twistModAt = (t, u, g, dev) =>
     1 + 0.3 * dev + 0.14 * Math.sin(1.5 * t - 2.4 * u) * (0.3 + 0.7 * g);
@@ -248,13 +262,15 @@ export function createSail(shape) {
     const g = gustAt(t);
     const dev = (g - 0.5) * 2; // -1..1 around the mean wind
     const flutterAmp = 0.005 + 0.013 * g;
+    // Mast bend: gust load + a slower pumping spring, ~±3 cm at the tip.
+    const flexBend = 0.06 * (0.35 * dev + 0.2 * Math.sin(1.1 * t + 0.5) * (0.3 + 0.7 * g));
     for (let i = 0; i < count; i++) {
       const v = params[i * 3], u = params[i * 3 + 1], damp = params[i * 3 + 2];
       const belly = comps[i * 2], twist = comps[i * 2 + 1];
       const pocketZ = base[i * 3 + 2] - belly - twist;
       const bellyMod = 1 + 0.05 * dev * (0.25 + 0.75 * damp);
       pos[i * 3 + 2] = pocketZ + belly * bellyMod + twist * twistModAt(t, u, g, dev)
-        + flutterAt(t, u, v, damp, flutterAmp);
+        + flutterAt(t, u, v, damp, flutterAmp) + flexBend * u * u;
     }
     geo.attributes.position.needsUpdate = true;
     geo.computeVertexNormals();
@@ -268,7 +284,8 @@ export function createSail(shape) {
         const bellyMod = 1 + 0.05 * dev * (0.25 + 0.75 * ring.damp);
         const dz = ring.belly * (bellyMod - 1)
           + ring.twist * (twistModAt(t, ring.u, g, dev) - 1)
-          + flutterAt(t, ring.u, ring.v, ring.damp, flutterAmp);
+          + flutterAt(t, ring.u, ring.v, ring.damp, flutterAmp)
+          + flexBend * ring.u * ring.u;
         for (let j = 0; j < tube.ringSize; j++) {
           const zi = (r * tube.ringSize + j) * 3 + 2;
           arr[zi] = tube.baseZ[zi] + dz;
@@ -276,6 +293,20 @@ export function createSail(shape) {
       }
       tube.geo.attributes.position.needsUpdate = true;
     }
+
+    // Sleeve bends with the mast (local z is squashed by the teardrop scale),
+    // and the tip cap rides the sleeve end.
+    const sArr = sleeveGeo.attributes.position.array;
+    for (let r = 0; r < SLEEVE_RINGS; r++) {
+      const ru = r / (SLEEVE_RINGS - 1);
+      const dz = (flexBend * ru * ru) / SLEEVE_SQUASH;
+      for (let j = 0; j < SLEEVE_RING_SIZE; j++) {
+        const zi = (r * SLEEVE_RING_SIZE + j) * 3 + 2;
+        sArr[zi] = sleeveBase[zi] + dz;
+      }
+    }
+    sleeveGeo.attributes.position.needsUpdate = true;
+    cap.position.z = capBaseZ + flexBend;
   }
   return { mesh: group, update };
 }

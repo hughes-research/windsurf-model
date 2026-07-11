@@ -31,9 +31,7 @@ export function createHardware(shape, boom) {
     new THREE.Vector3(mastX(0.03), 0.13, 0),
   ];
   g.add(new THREE.Mesh(taperedTube(mastPts, () => 0.026, 14, 8), carbon));
-  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.013, 10, 8), carbon);
-  cap.position.set(mastX(1), shape.height, 0); // plugs the sleeve tip
-  g.add(cap);
+  // (The sleeve tip cap lives in sail.js so it can flex with the mast.)
 
   // Wishbone boom at clew height, arms traced from the top-down boom photo.
   const bu = shape.clewU;
