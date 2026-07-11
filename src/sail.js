@@ -94,7 +94,10 @@ export function createSail(shape) {
   // thinner toward the luff like real tube battens.
   const group = new THREE.Group();
   group.add(mesh);
-  const rodMat = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.45, metalness: 0.3 });
+  const rodMat = new THREE.MeshPhysicalMaterial({
+    color: 0xf2f2f2, transparent: true, opacity: 0.25, roughness: 0.2,
+    clearcoat: 0.5, depthWrite: false, // clear rod: shows as a glassy ridge, print stays visible
+  });
   for (const bt of BATTENS) {
     const pts = [];
     for (let i = 0; i <= 20; i++) {
