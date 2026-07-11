@@ -1,3 +1,12 @@
+/**
+ * Application entry point.
+ *
+ * Sets up the Three.js renderer, studio lighting, loads all kit assets,
+ * assembles board + rig, and runs the orbit/zoom interaction loop.
+ *
+ * @module main
+ */
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -8,6 +17,15 @@ import { createSail } from './sail.js';
 import { createHardware } from './hardware.js';
 import { createBoard, DECK_AT_TRACK, LEN } from './board.js';
 
+/** Vertical offset so the kit floats above the contact shadow. */
+const FLOAT = 0.5;
+
+/** Rig rake in radians (~19° aft). */
+const RIG_RAKE = -0.34;
+
+/**
+ * Initialize renderer, scene, kit assembly, controls, and animation loop.
+ */
 async function init() {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -28,11 +46,10 @@ async function init() {
   rim.position.set(-5, 3, -4);
   scene.add(rim);
 
-  // Kit: board floating, rig raked slightly aft, pivoting at the mast base.
+  // Load shape data in parallel, then assemble the kit.
   const [shape, boardShape, boomShape] = await Promise.all([
     loadSailShape(), loadBoardShape(LEN), loadBoomShape(),
   ]);
-  const FLOAT = 0.5;
   const kit = new THREE.Group();
   kit.add(createBoard(boardShape));
   const sail = createSail(shape);
@@ -40,14 +57,14 @@ async function init() {
   rig.add(sail.mesh, createHardware(shape, boomShape));
   rig.position.y = 0.015; // tack rides just off the deck
   const rigPivot = new THREE.Group();
-  rigPivot.rotation.z = -0.34; // sailing rake, ~19deg aft
-  rigPivot.position.set(0.02, DECK_AT_TRACK, 0); // mast track sits 2cm aft
+  rigPivot.rotation.z = RIG_RAKE;
+  rigPivot.position.set(0.02, DECK_AT_TRACK, 0); // mast track 2 cm aft of center
   rigPivot.add(rig);
   kit.add(rigPivot);
   kit.position.y = FLOAT;
   scene.add(kit);
 
-  // Fake contact shadow.
+  // Radial-gradient contact shadow (no shadow maps).
   const sc = document.createElement('canvas');
   sc.width = sc.height = 256;
   const sctx = sc.getContext('2d');
@@ -68,7 +85,8 @@ async function init() {
   camera.position.set(5.4, 3, 6.6);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.set(0.6, 2.3, 0);
-  // Pull the camera back until the whole kit fits the viewport.
+
+  /** Pull camera back until the whole kit fits the viewport. */
   const frameKit = () => {
     const half = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
     const d = Math.max(5.2 / (2 * half), 5.4 / (2 * half * camera.aspect));
@@ -78,13 +96,14 @@ async function init() {
   controls.enableDamping = true;
   controls.minDistance = 2.5;
   controls.maxDistance = 14;
-  controls.maxPolarAngle = 2.7; // allow orbiting under the board to see the hull
+  controls.maxPolarAngle = 2.7; // allow orbiting under the board
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.9;
   let idleTimer;
   controls.addEventListener('start', () => { controls.autoRotate = false; clearTimeout(idleTimer); });
   controls.addEventListener('end', () => { idleTimer = setTimeout(() => (controls.autoRotate = true), 3000); });
 
+  // Dev-only sanity check: reject NaN/Infinity in geometry.
   if (import.meta.env.DEV) {
     scene.traverse((o) => {
       const a = o.geometry?.attributes.position;
@@ -101,6 +120,7 @@ async function init() {
     frameKit();
   });
 
+  renderer.render(scene, camera); // paint immediately; rAF can be throttled in background tabs
   renderer.setAnimationLoop((t) => {
     sail.update(t / 1000);
     controls.update();
