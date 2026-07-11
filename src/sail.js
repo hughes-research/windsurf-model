@@ -9,6 +9,14 @@ const SLEEVE_PTS = [[0, 0.06], [0.25, 0.075], [0.6, 0.055], [0.85, 0.032], [1, 0
 // ~40% back from the luff, deepest near boom height, leech twist up high.
 const DRAFT_PTS = [[0, 0.06], [0.235, 0.095], [0.5, 0.075], [0.8, 0.038], [1, 0.008]];
 
+// Chordwise camber profile: flat across the X-ply entry zone behind the
+// sleeve (underside-of-a-wing flat), swooshing up to max draft ~40% back,
+// easing out to the leech.
+const PROFILE_PTS = [
+  [0, 0], [0.05, 0.012], [0.12, 0.05], [0.26, 0.45], [0.42, 1],
+  [0.68, 0.62], [0.88, 0.22], [1, 0],
+];
+
 // Batten lines measured from the dark stripes in the catalog render (two
 // interpolated where black print hides them). u = position at the luff;
 // du = how far the rod's rear drops by the leech (u units — lower battens
@@ -48,7 +56,7 @@ function pocketBulge(u, v) {
 function surfacePos(shape, u, v) {
   const xl = shape.luffX(u), xr = shape.leechX(u);
   const chord = xr - xl;
-  const belly = interp1(DRAFT_PTS, u) * chord * Math.sin(Math.PI * Math.pow(v, 0.75));
+  const belly = interp1(DRAFT_PTS, u) * chord * interp1(PROFILE_PTS, v);
   const twist = 0.55 * u * u * v * chord; // parabolic: head falls open to leeward
   return new THREE.Vector3(xl + v * chord, u * shape.height, belly + twist + pocketBulge(u, v));
 }
