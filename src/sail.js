@@ -20,7 +20,7 @@ export function createSail(shape) {
     for (let j = 0; j <= NV; j++) {
       const v = j / NV;
       const belly = interp1(DRAFT_PTS, u) * chord * Math.sin(Math.PI * Math.pow(v, 0.75));
-      const twist = 0.3 * Math.pow(u, 2.4) * v * chord;
+      const twist = 0.55 * u * u * v * chord; // parabolic: head falls open to leeward
       pos.set([xl + v * chord, u * shape.height, belly + twist], k * 3);
       uv.set(shape.uvFor(u, v), k * 2);
       params.set([v, u], k * 2);

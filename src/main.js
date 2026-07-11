@@ -40,7 +40,7 @@ async function init() {
   rig.add(sail.mesh, createHardware(shape, boomShape));
   rig.position.y = 0.015; // tack rides just off the deck
   const rigPivot = new THREE.Group();
-  rigPivot.rotation.z = -0.13;
+  rigPivot.rotation.z = -0.34; // sailing rake, ~19deg aft
   rigPivot.position.set(0.02, DECK_AT_TRACK, 0); // mast track sits 2cm aft
   rigPivot.add(rig);
   kit.add(rigPivot);
@@ -67,11 +67,11 @@ async function init() {
   const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
   camera.position.set(5.4, 3, 6.6);
   const controls = new OrbitControls(camera, renderer.domElement);
-  controls.target.set(0.3, 2.4, 0);
+  controls.target.set(0.6, 2.3, 0);
   // Pull the camera back until the whole kit fits the viewport.
   const frameKit = () => {
     const half = Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
-    const d = Math.max(5.4 / (2 * half), 4.6 / (2 * half * camera.aspect));
+    const d = Math.max(5.2 / (2 * half), 5.4 / (2 * half * camera.aspect));
     camera.position.sub(controls.target).setLength(d).add(controls.target);
   };
   frameKit();
