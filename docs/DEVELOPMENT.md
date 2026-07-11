@@ -58,7 +58,7 @@ Conventions actually followed across this codebase, worth keeping consistent:
 
 ## Adding a new photo-mapped part
 
-The recipe, using the fin (the one part in this project *not* yet photo-derived — see [`README.md` → Known limitations](../README.md#known-limitations)) as the running example:
+The recipe — this is exactly the path the fin followed when it went from a hand-drawn `THREE.Shape` to a photo-derived blade (see [`PHOTO_TO_GEOMETRY.md` → Worked example: the fin](PHOTO_TO_GEOMETRY.md#worked-example-the-fin)):
 
 1. **Get a clean source photo.** Transparent background, flat-on or top-down, no baked drop shadow. See [`PHOTO_TO_GEOMETRY.md` → Preparing a source photo](PHOTO_TO_GEOMETRY.md#preparing-a-source-photo) for the full checklist.
 2. **Decide the parameterization.** Does the part vary primarily along one axis with a simple width profile (like the board — `widthAt(t)`), does it have two independent curved arms (like the boom), or is it closer to the sail's full `(u, v)` surface? Pick the closest existing pattern rather than inventing a new one.

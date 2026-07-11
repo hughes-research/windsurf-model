@@ -13,6 +13,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadSailShape } from './sailImage.js';
 import { loadBoardShape } from './boardImage.js';
 import { loadBoomShape } from './boomImage.js';
+import { loadFinShape } from './finImage.js';
 import { createSail } from './sail.js';
 import { createHardware } from './hardware.js';
 import { createBoard, DECK_AT_TRACK, LEN } from './board.js';
@@ -47,11 +48,11 @@ async function init() {
   scene.add(rim);
 
   // Load shape data in parallel, then assemble the kit.
-  const [shape, boardShape, boomShape] = await Promise.all([
-    loadSailShape(), loadBoardShape(LEN), loadBoomShape(),
+  const [shape, boardShape, boomShape, finShape] = await Promise.all([
+    loadSailShape(), loadBoardShape(LEN), loadBoomShape(), loadFinShape(),
   ]);
   const kit = new THREE.Group();
-  kit.add(createBoard(boardShape));
+  kit.add(createBoard(boardShape, finShape));
   const sail = createSail(shape);
   const rig = new THREE.Group();
   rig.add(sail.mesh, createHardware(shape, boomShape));

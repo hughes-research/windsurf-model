@@ -195,13 +195,13 @@ Checklist before scanning a new photo for this pipeline:
 - **Know which real-world dimension anchors the scale.** Every shape descriptor in this project fixes scale from exactly one known measurement (sail luff length, board length, boom length inferred from clew position) — decide that anchor before writing the loader.
 - **Sample a few pixels before trusting the alpha threshold.** Use a throwaway console script to sample alpha at a spot you know should read as "inside" and a spot that should read as "background," and set `alphaEdge` between them — don't assume the default of 20 is right for a new source.
 
-## Worked example: adding a new part
+## Worked example: the fin
 
-To texture-map a new flat part (say, a fin, following up on the one gap in this project — see [`README.md`](../README.md#known-limitations)):
+The fin was the last part to go through this pipeline (it started life as a hand-drawn `THREE.Shape` extrusion), and it's the cleanest end-to-end example of the recipe:
 
-1. Get a top-down or flat-on photo with transparent background, e.g. `fin.png`.
-2. Write `finImage.js`: call `loadAndScan(finUrl)`, fix scale from the fin's known depth or span, return a descriptor with `widthAt(t)` (or whatever parameterization fits a fin's shape) and `uvFor(t, s)`.
-3. Write `fin.js`: replace the hand-drawn `THREE.Shape` extrusion currently in `board.js` with a loft that calls the new descriptor at each station, the same way `board.js` calls `boardImage.js`'s `widthAt`.
-4. Wire it into `main.js`: add `loadFinShape()` to the `Promise.all` at the top of `init()`, pass the result into the fin-building call.
+1. **Source photo**: `fin_texture.png` — a side-on blade shot, base at the image top, transparent background, the aft sweep visible in the outline.
+2. **`src/finImage.js`**: calls `loadAndScan(finUrl)`, fixes scale from one known dimension (blade depth, 0.4 m), and returns a descriptor with `leadX(u)` / `trailX(u)` — the blade's leading and trailing edge curves, exactly the way the sail exposes `luffX`/`leechX` — plus `uvFor(u, s)` closing over the same scan.
+3. **Loft** (in `board.js`): walks `u` from tip to base, building a thin elliptical cross-section at each station spanning `leadX(u)`→`trailX(u)`, with thickness tapering toward the tip. The sweep comes from the photo; only the thickness profile is hand-authored (the photo can't see it — see [When this technique applies](#when-this-technique-applies)).
+4. **Wire-up** (in `main.js`): `loadFinShape()` joins the `Promise.all` with the other three loaders; the descriptor is passed to `createBoard(boardShape, finShape)`.
 
-That's the entire recipe — no part of the existing sail, board, or boom pipeline needs to change, because each part's scanning and geometry modules are fully independent, sharing only `util.js`.
+No part of the existing sail, board, or boom pipeline changed when the fin was added — each part's scanning and geometry modules are fully independent, sharing only `util.js`. That's the property to preserve when adding the next part.

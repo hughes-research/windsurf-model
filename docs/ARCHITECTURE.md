@@ -4,7 +4,7 @@ System design for the Severne Mach 3D showcase: how the modules relate, how data
 
 ## Design principle
 
-**One pipeline, applied three times.** The sail, the board, and the boom are visually unrelated, but every one of them is built by the same four-stage process:
+**One pipeline, applied four times.** The sail, the board, the boom, and the fin are visually unrelated, but every one of them is built by the same four-stage process:
 
 1. **Scan** a source photo's alpha channel to recover its silhouette as pixel data.
 2. **Wrap** that pixel data in a small set of pure functions — a *shape descriptor* — that answer "how wide is this part at position X" and "what UV coordinate does this 3D point correspond to."
@@ -19,15 +19,15 @@ No part's geometry code knows anything about another part's geometry code. The o
                           ┌─────────────┐
                           │   main.js   │   scene assembly, camera, lights, animation loop
                           └──────┬──────┘
-              ┌──────────────────┼──────────────────┐
-              │                  │                   │
-      ┌───────▼──────┐   ┌───────▼───────┐   ┌───────▼───────┐
-      │ sailImage.js │   │ boardImage.js │   │  boomImage.js │   scan photos → shape descriptors
-      └───────┬──────┘   └───────┬───────┘   └───────┬───────┘
-              │                  │                   │
-      ┌───────▼──────┐   ┌───────▼───────┐           │
-      │    sail.js   │   │   board.js    │           │
-      └───────┬──────┘   └───────────────┘           │
+              ┌──────────────────┼──────────────────┬────────────────────┐
+              │                  │                   │                    │
+      ┌───────▼──────┐   ┌───────▼───────┐   ┌───────▼───────┐   ┌───────▼──────┐
+      │ sailImage.js │   │ boardImage.js │   │  boomImage.js │   │  finImage.js │   scan photos → shape descriptors
+      └───────┬──────┘   └───────┬───────┘   └───────┬───────┘   └───────┬──────┘
+              │                  │                   │                    │
+      ┌───────▼──────┐   ┌───────▼───────┐           │                    │
+      │    sail.js   │   │   board.js ◄──┼───────────┼────────────────────┘
+      └───────┬──────┘   └───────────────┘           │       (board.js lofts the fin blade)
               │                                       │
       ┌───────▼───────────────────────────────────────▼──────┐
       │                     hardware.js                       │   mast, boom, outhaul, foot

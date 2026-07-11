@@ -35,9 +35,10 @@ export const DECK_AT_TRACK = interp1(ROCKER_PTS, TAIL_X / LEN) + interp1(THICK_P
  * Build the board group (hull mesh + fin).
  *
  * @param {{ widthAt: (t: number) => number, texture: THREE.Texture, bottomTexture: THREE.Texture, uvFor: Function }} shape
+ * @param {{ depth: number, leadX: Function, trailX: Function, uvFor: Function, texture: THREE.Texture }} finShape
  * @returns {THREE.Group}
  */
-export function createBoard(shape) {
+export function createBoard(shape, finShape) {
   const g = new THREE.Group();
   const NT = 60, NJ = 32, n = 2.6; // superellipse exponent: boxy slalom rails
   const pos = [], uv = [];
@@ -86,20 +87,39 @@ export function createBoard(shape) {
   hull.name = 'board';
   g.add(hull);
 
-  // Raked slalom fin under the tail.
-  const s = new THREE.Shape();
-  s.moveTo(0, 0);
-  s.quadraticCurveTo(0.03, -0.25, 0.15, -0.4);
-  s.lineTo(0.17, -0.41);
-  s.quadraticCurveTo(0.13, -0.18, 0.11, 0);
-  s.closePath();
-  const finGeo = new THREE.ExtrudeGeometry(s, {
-    depth: 0.012, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 2,
-  });
-  const fin = new THREE.Mesh(finGeo, new THREE.MeshStandardMaterial({
-    color: 0x1a1b1e, roughness: 0.3, metalness: 0.4,
+  // Fin: blade lofted from the scanned photo outline (sweep included),
+  // lens cross-sections thinning toward the tip. Base buries into the hull.
+  const FU = 40, FJ = 16;
+  const fpos = [], fuv = [], fidx = [];
+  for (let i = 0; i <= FU; i++) {
+    const u = i / FU; // 0 tip -> 1 base
+    const xl = finShape.leadX(u), xr = finShape.trailX(u);
+    const cx = (xl + xr) / 2, half = (xr - xl) / 2;
+    const y = (u - 1) * finShape.depth;
+    // ~11 mm thick at the base tapering to a near-edge at the tip
+    const ht = 0.0055 * (0.35 + 0.65 * u) * Math.min(1, u * 20 + 0.05);
+    for (let j = 0; j <= FJ; j++) {
+      const a = (j / FJ) * Math.PI * 2;
+      fpos.push(cx + Math.cos(a) * half, y, Math.sin(a) * ht);
+      fuv.push(...finShape.uvFor(u, 0.5 + 0.5 * Math.cos(a)));
+    }
+  }
+  const fring = FJ + 1;
+  for (let i = 0; i < FU; i++)
+    for (let j = 0; j < FJ; j++) {
+      const a = i * fring + j;
+      fidx.push(a, a + 1, a + fring, a + 1, a + fring + 1, a + fring);
+    }
+  const finGeo = new THREE.BufferGeometry();
+  finGeo.setAttribute('position', new THREE.Float32BufferAttribute(fpos, 3));
+  finGeo.setAttribute('uv', new THREE.Float32BufferAttribute(fuv, 2));
+  finGeo.setIndex(fidx);
+  finGeo.computeVertexNormals();
+  const fin = new THREE.Mesh(finGeo, new THREE.MeshPhysicalMaterial({
+    map: finShape.texture, roughness: 0.35, metalness: 0.1,
+    clearcoat: 0.3, clearcoatRoughness: 0.3, envMapIntensity: 0.6,
   }));
-  fin.position.set(TAIL_X - 0.16, interp1(ROCKER_PTS, 0.03) + 0.005, -0.006);
+  fin.position.set(TAIL_X - 0.16, interp1(ROCKER_PTS, 0.03) + 0.01, 0);
   fin.name = 'fin';
   g.add(fin);
 

@@ -5,7 +5,7 @@
 
 **[→ Try the live demo](https://winsurfmodel.netlify.app)** — no install required, orbits and loads straight in the browser.
 
-A photorealistic, fully procedural 3D viewer for a Severne Mach slalom windsurf kit — 6.5 m² cambered race sail, mast, wishbone boom, slalom board, and fin — rendered in the browser with [Three.js](https://threejs.org/). There is no 3D-modeled asset anywhere in this project: every mesh is generated from math at load time, and every texture and silhouette is extracted from the manufacturer's own catalog photography. Four PNGs in, one interactive rig out.
+A photorealistic, fully procedural 3D viewer for a Severne Mach slalom windsurf kit — 6.5 m² cambered race sail, mast, wishbone boom, slalom board, and fin — rendered in the browser with [Three.js](https://threejs.org/). There is no 3D-modeled asset anywhere in this project: every mesh is generated from math at load time, and every texture and silhouette is extracted from the manufacturer's own catalog photography. Five PNGs in, one interactive rig out.
 
 Drag to orbit, scroll to zoom, and the kit auto-rotates gently when idle — a clean studio presentation built for inspecting a product, not a game or a simulator.
 
@@ -25,7 +25,7 @@ Drag to orbit, scroll to zoom, and the kit auto-rotates gently when idle — a c
 
 ## Support this project
 
-The work — the code, the photo-to-geometry pipeline, all of it — is free: GPL-licensed, built in the open, no team and no funding behind it. It ran entirely on conversation and LLM tokens. If you'd like to see more of this — more parts finished (a scanned fin, a footstrap), more kits, the technique applied to other product photography — the most direct way to help is covering that token cost: **[sponsor @hughes-research on GitHub](https://github.com/sponsors/hughes-research)**. Every bit of support goes straight back into building the next one.
+The work — the code, the photo-to-geometry pipeline, all of it — is free: GPL-licensed, built in the open, no team and no funding behind it. It ran entirely on conversation and LLM tokens. If you'd like to see more of this — more parts finished (footstraps, harness lines), more kits, the technique applied to other product photography — the most direct way to help is covering that token cost: **[sponsor @hughes-research on GitHub](https://github.com/sponsors/hughes-research)**. Every bit of support goes straight back into building the next one.
 
 ## Table of contents
 
@@ -92,6 +92,7 @@ windsurf-model/
 ├── 026-Mach-9-render-final-lr-1.png    Sail catalog render — texture + silhouette (source of truth for the sail)
 ├── board_bottom.png                    Top-down hull-bottom photo — texture for the underside of the board
 ├── boom.png                            Top-down boom photo — texture + arm shape for the wishbone
+├── fin_texture.png                     Side-on fin photo — blade outline (sweep included) + carbon texture
 ├── src/
 │   ├── main.js                         Renderer, lights, scene assembly, camera, OrbitControls, animation loop
 │   ├── util.js                         loadAndScan() (alpha silhouette scanner), smoothLuffX(), interp1() spline, taperedTube()
@@ -100,7 +101,8 @@ windsurf-model/
 │   ├── boomImage.js                    Scans the boom photo → left/right arm centerlines + thickness, UV texture
 │   ├── hardware.js                     Mast stub, wishbone boom, head/tail blocks, outhaul rope, mast foot
 │   ├── boardImage.js                   Scans deck + bottom photos → board outline, deck UVs, warped bottom texture
-│   ├── board.js                        Lofted superellipse hull, deck/hull materials, extruded fin
+│   ├── board.js                        Lofted superellipse hull, deck/hull materials, lofted fin blade
+│   ├── finImage.js                     Scans the fin photo → leading/trailing edge curves, UV mapping
 │   └── board_map.png                   Top-down deck photo — outline + deck texture
 ├── docs/
 │   ├── ARCHITECTURE.md                 System design: module graph, data flow, scene graph, rendering pipeline
@@ -151,7 +153,7 @@ Three independent local coordinate systems exist, composed in `main.js` via nest
 
 ## Required assets
 
-Four PNGs, all with clean alpha channels, must be present for the app to build a kit. Nothing is bundled with the repo as a placeholder — swap these to re-skin the whole model.
+Five PNGs, all with clean alpha channels, must be present for the app to build a kit. Nothing is bundled with the repo as a placeholder — swap these to re-skin the whole model.
 
 | File | Location | Dimensions | Drives |
 |---|---|---|---|
@@ -159,6 +161,7 @@ Four PNGs, all with clean alpha channels, must be present for the app to build a
 | `src/board_map.png` | `src/` | 217 × 786 | Board outline, width profile, deck texture |
 | `board_bottom.png` | repo root | 219 × 789 | Hull-bottom texture (warped into the deck photo's UV frame) |
 | `boom.png` | repo root | 106 × 354 | Both wishbone arm shapes and the boom's top/bottom texture |
+| `fin_texture.png` | repo root | 266 × 900 | Fin blade outline — leading/trailing edges with the aft sweep — and the carbon texture, both sides |
 
 Alpha edges should be clean (no soft drop shadow baked into the alpha) — the scanner uses a fixed alpha threshold of 20/255 per pixel, chosen so the sail's translucent window (~alpha 27) still reads as "inside the sail" without pulling in stray shadow pixels. See [`docs/PHOTO_TO_GEOMETRY.md`](docs/PHOTO_TO_GEOMETRY.md#preparing-a-source-photo) before substituting your own photos.
 
@@ -177,6 +180,7 @@ Alpha edges should be clean (no soft drop shadow baked into the alpha) — the s
 | Change tack-to-deck gap | `src/main.js` | `rig.position.y` |
 | Retrim the boom | `src/hardware.js` | `yAt()` height curve, and the endpoint constants near `head`/`tail` block placement |
 | Resize the board | `src/board.js` | `LEN`, `TAIL_X`, `THICK_PTS`, `ROCKER_PTS` |
+| Swap or resize the fin | `src/finImage.js` / `src/main.js` | The `finUrl` import (side-on photo, base at top), and the `depth` argument to `loadFinShape()` (default 0.4 m) |
 | Change studio lighting | `src/main.js` | `key`/`rim` `DirectionalLight`s, `scene.environmentIntensity` |
 | Change camera framing | `src/main.js` | `frameKit()`, `controls.target`, `camera.fov` |
 
@@ -206,8 +210,7 @@ Requires WebGL2 (via Three.js's `WebGLRenderer`) and ES modules. Tested against 
 
 ## Known limitations
 
-- The fin is the one part *not* derived from a photo — its profile is a hand-drawn `THREE.Shape`. A fin photo would complete the pipeline.
-- The board's thickness and rocker curves (`THICK_PTS`, `ROCKER_PTS` in `board.js`) are estimated, not scanned — only the plan-view outline and textures are photo-derived.
+- The board's thickness and rocker curves (`THICK_PTS`, `ROCKER_PTS` in `board.js`) are estimated, not scanned — only the plan-view outline and textures are photo-derived. The fin's thickness profile is likewise hand-tuned; its outline and texture come from the photo.
 - At grazing viewing angles the sail's clearcoat can read as a silvery sheen on the reverse side, slightly washing out the print.
 - No configurator, spec hotspots, or water/environment scene — this is a clean studio product shot, not a full marketing site (see the [design spec](docs/superpowers/specs/) for what was deliberately scoped out).
 
@@ -221,4 +224,4 @@ Requires WebGL2 (via Three.js's `WebGLRenderer`) and ES modules. Tested against 
 
 **Code**: [GNU General Public License v3.0 or later](LICENSE) — free as in speech *and* free as in beer. Use, study, modify, and redistribute it, including commercially, as long as derivative works stay under GPL-3.0-or-later too (copyleft) and you keep the license and copyright notice attached.
 
-**Assets**: the four source photographs (`026-Mach-9-render-final-lr-1.png`, `src/board_map.png`, `board_bottom.png`, `boom.png`) and the Severne name/branding are **not** covered by the GPL grant above — they belong to their respective owner and are used here for a non-commercial demonstration of the modeling technique. The GPL applies to the JavaScript, HTML, and documentation in this repository, not to the third-party product photography it happens to load.
+**Assets**: the five source photographs (`026-Mach-9-render-final-lr-1.png`, `src/board_map.png`, `board_bottom.png`, `boom.png`, `fin_texture.png`) and the Severne/Select names and branding are **not** covered by the GPL grant above — they belong to their respective owner and are used here for a non-commercial demonstration of the modeling technique. The GPL applies to the JavaScript, HTML, and documentation in this repository, not to the third-party product photography it happens to load.
