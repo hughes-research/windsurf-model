@@ -32,7 +32,7 @@ export function createHardware(shape, boom) {
   const by = bu * shape.height;
   const bx = mastX(bu);
   const ch = shape.leechX(bu) - bx;
-  const bl = ch + 0.11;             // boom length front->tail, meters
+  const bl = ch + 0.01;             // boom length front->tail: end ~0.5cm past the clew
   const mpp = bl / boom.length;     // meters per photo pixel
   const boomMat = new THREE.MeshPhysicalMaterial({
     map: boom.texture, roughness: 0.55, metalness: 0.1, clearcoat: 0.2, clearcoatRoughness: 0.4,
@@ -49,7 +49,7 @@ export function createHardware(shape, boom) {
     const sgn = Math.sign(pts[0].z) || 1;
     pts.unshift(new THREE.Vector3(bx + 0.015, by + 0.36, sgn * 0.02));
     radii.unshift(radii[0]);
-    pts.push(new THREE.Vector3(bx + ch + 0.08, by - 0.11, sgn * 0.015));
+    pts.push(new THREE.Vector3(bx + ch - 0.02, by - 0.11, sgn * 0.015));
     radii.push(radii[radii.length - 1]);
     const rAt = (t) => {
       const f = t * (radii.length - 1), i = Math.floor(f);
@@ -68,7 +68,7 @@ export function createHardware(shape, boom) {
   head.position.set(bx + 0.01, by + 0.36, 0);
   g.add(head);
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.08), carbon);
-  tail.position.set(bx + ch + 0.08, by - 0.11, 0);
+  tail.position.set(bx + ch - 0.02, by - 0.11, 0);
   g.add(tail);
 
   // Short mast foot: collar at the mast base + small universal joint to the deck.
