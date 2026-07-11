@@ -17,6 +17,14 @@ const PROFILE_PTS = [
   [0.68, 0.62], [0.88, 0.22], [1, 0],
 ];
 
+// Camber inducers on battens 1-4: rotating the cams bows the entry out at
+// those stations, locking a fuller draft into the lower sail. Same peak and
+// tail as the flat profile — only the front half fills out.
+const CAM_PROFILE_PTS = [
+  [0, 0], [0.05, 0.11], [0.12, 0.32], [0.26, 0.64], [0.42, 1],
+  [0.68, 0.62], [0.88, 0.22], [1, 0],
+];
+
 // Batten lines measured from the dark stripes in the catalog render (two
 // interpolated where black print hides them). u = position at the luff;
 // du = how far the rod's rear drops by the leech (u units — lower battens
@@ -30,6 +38,14 @@ const BATTENS = [
   { u: 0.85, du: -0.014 },     // measured: gentle rise aft
   { u: 0.9365, du: -0.047 },
 ];
+// Cams live on the lower four battens; panels between them bow slightly less.
+const CAMS = BATTENS.slice(0, 4).map((b) => b.u);
+function camWeight(u) {
+  let s = 0;
+  for (const uc of CAMS) s += Math.exp(-(((u - uc) / 0.06) ** 2));
+  return Math.min(1, s);
+}
+
 // Four leech mini-battens midway between the main battens (first one
 // measured at 0.375 in the render; the rest follow the midpoint pattern).
 // They only exist near the leech — miniGate ramps them in aft of ~78% chord.
@@ -56,7 +72,9 @@ function pocketBulge(u, v) {
 function surfacePos(shape, u, v) {
   const xl = shape.luffX(u), xr = shape.leechX(u);
   const chord = xr - xl;
-  const belly = interp1(DRAFT_PTS, u) * chord * interp1(PROFILE_PTS, v);
+  const flat = interp1(PROFILE_PTS, v);
+  const prof = flat + camWeight(u) * (interp1(CAM_PROFILE_PTS, v) - flat);
+  const belly = interp1(DRAFT_PTS, u) * chord * prof;
   const twist = 0.55 * u * u * v * chord; // parabolic: head falls open to leeward
   return new THREE.Vector3(xl + v * chord, u * shape.height, belly + twist + pocketBulge(u, v));
 }
@@ -156,7 +174,13 @@ export function createSail(shape) {
       luff(u) + 0.015, u * shape.height, 0.5 * interp1(SLEEVE_PTS, u),
     ));
   }
-  const sleeveGeo = taperedTube(sleevePts, (t) => interp1(SLEEVE_PTS, t), 18, 120);
+  // Hard bulge where each cam presses against the mast inside the sleeve.
+  const camBump = (t) => {
+    let s = 0;
+    for (const uc of CAMS) s += Math.exp(-(((t - uc) / 0.02) ** 2));
+    return s;
+  };
+  const sleeveGeo = taperedTube(sleevePts, (t) => interp1(SLEEVE_PTS, t) + 0.008 * camBump(t), 18, 120);
   const sPos = sleeveGeo.attributes.position, sUv = sleeveGeo.attributes.uv;
   for (let i = 0; i < sUv.count; i++) {
     const t = sUv.getX(i);    // along the tube = u
