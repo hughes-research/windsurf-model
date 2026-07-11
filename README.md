@@ -1,11 +1,18 @@
 # Severne Mach — 3D Showcase
 
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/hughes-research)
+
 A photorealistic, fully procedural 3D viewer for a Severne Mach slalom windsurf kit — 6.5 m² cambered race sail, mast, wishbone boom, slalom board, and fin — rendered in the browser with [Three.js](https://threejs.org/). There is no 3D-modeled asset anywhere in this project: every mesh is generated from math at load time, and every texture and silhouette is extracted from the manufacturer's own catalog photography. Four PNGs in, one interactive rig out.
 
 Drag to orbit, scroll to zoom, and the kit auto-rotates gently when idle — a clean studio presentation built for inspecting a product, not a game or a simulator.
 
+## Support this project
+
+The work — the code, the photo-to-geometry pipeline, all of it — is free: GPL-licensed, built in the open, no team and no funding behind it. It ran entirely on conversation and LLM tokens. If you'd like to see more of this — more parts finished (a scanned fin, a footstrap), more kits, the technique applied to other product photography — the most direct way to help is covering that token cost: **[sponsor @hughes-research on GitHub](https://github.com/sponsors/hughes-research)**. Every bit of support goes straight back into building the next one.
+
 ## Table of contents
 
+- [Support this project](#support-this-project)
 - [Quick start](#quick-start)
 - [Controls](#controls)
 - [Why this exists](#why-this-exists)
