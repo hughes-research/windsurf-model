@@ -1,16 +1,22 @@
 import * as THREE from 'three';
 import { taperedTube } from './util.js';
 
-// Rig-local coords: sail tack at origin, mast base ~0.54 below (extension + joint).
+// Rig-local coords: sail tack at origin, mast foot just below (short base + joint).
 export function createHardware(shape) {
   const g = new THREE.Group();
   const carbon = new THREE.MeshStandardMaterial({ color: 0x151517, roughness: 0.35, metalness: 0.55 });
   const alloy = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.3, metalness: 0.9 });
 
-  // Mast: straight extension below the tack, then follows the scanned luff,
-  // inset slightly so the tube sits inside the printed sleeve.
-  const mastX = (u) => shape.luffX(u) + 0.02;
-  const mastPts = [new THREE.Vector3(mastX(0), -0.42, 0), new THREE.Vector3(mastX(0), -0.2, 0)];
+  // Luff curve: the mast bends in a smooth arc, so fit a parabola through the
+  // scanned luff instead of tracking its notches (fittings, boom cutaway).
+  const [ua, ub, uc] = [0.05, 0.5, 0.95];
+  const [xa, xb, xc] = [shape.luffX(ua), shape.luffX(ub), shape.luffX(uc)];
+  const mastX = (u) =>
+    0.015
+    + xa * ((u - ub) * (u - uc)) / ((ua - ub) * (ua - uc))
+    + xb * ((u - ua) * (u - uc)) / ((ub - ua) * (ub - uc))
+    + xc * ((u - ua) * (u - ub)) / ((uc - ua) * (uc - ub));
+  const mastPts = [new THREE.Vector3(mastX(0), -0.05, 0)];
   for (let i = 0; i <= 14; i++) {
     const u = i / 14;
     mastPts.push(new THREE.Vector3(mastX(u), u * shape.height, 0));
@@ -41,12 +47,12 @@ export function createHardware(shape) {
   tail.position.set(bx + ch + 0.1, by - 0.06, 0);
   g.add(tail);
 
-  // Extension collar + universal-joint block at the base.
-  const ext = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.26, 16), alloy);
-  ext.position.set(mastX(0), -0.31, 0);
-  g.add(ext);
-  const joint = new THREE.Mesh(new THREE.CylinderGeometry(0.024, 0.032, 0.12, 16), carbon);
-  joint.position.set(mastX(0), -0.49, 0);
+  // Short mast foot: collar at the mast base + small universal joint to the deck.
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.045, 16), alloy);
+  collar.position.set(mastX(0), -0.045, 0);
+  g.add(collar);
+  const joint = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.035, 12), carbon);
+  joint.position.set(mastX(0), -0.075, 0);
   g.add(joint);
 
   return g;
