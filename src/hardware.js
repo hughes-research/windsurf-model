@@ -37,17 +37,20 @@ export function createHardware(shape, boom) {
   const boomMat = new THREE.MeshPhysicalMaterial({
     map: boom.texture, roughness: 0.55, metalness: 0.1, clearcoat: 0.2, clearcoatRoughness: 0.4,
   });
+  const yAt = (d) => by + 0.36 - 0.47 * Math.pow(d / boom.length, 1.1); // front high, sloping aft
   for (const side of ['left', 'right']) {
     const pts = [], radii = [];
     for (const smp of boom.arms(16)) {
       const { c, r } = smp[side];
-      pts.push(new THREE.Vector3(
-        bx + smp.d * mpp,
-        by + 0.26 - 0.27 * Math.pow(smp.d / boom.length, 1.1), // front raised, sloping aft
-        (c - boom.centerX) * mpp,
-      ));
+      pts.push(new THREE.Vector3(bx + smp.d * mpp, yAt(smp.d), (c - boom.centerX) * mpp));
       radii.push(THREE.MathUtils.clamp(r * mpp, 0.008, 0.026)); // rope merges guard
     }
+    // Arm ends plunge into the head and tail blocks so nothing floats.
+    const sgn = Math.sign(pts[0].z) || 1;
+    pts.unshift(new THREE.Vector3(bx + 0.015, by + 0.36, sgn * 0.02));
+    radii.unshift(radii[0]);
+    pts.push(new THREE.Vector3(bx + ch + 0.08, by - 0.11, sgn * 0.015));
+    radii.push(radii[radii.length - 1]);
     const rAt = (t) => {
       const f = t * (radii.length - 1), i = Math.floor(f);
       return radii[i] + (radii[Math.min(i + 1, radii.length - 1)] - radii[i]) * (f - i);
@@ -62,10 +65,10 @@ export function createHardware(shape, boom) {
     g.add(new THREE.Mesh(geo, boomMat));
   }
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.085, 0.075), carbon);
-  head.position.set(bx + 0.01, by + 0.26, 0);
+  head.position.set(bx + 0.01, by + 0.36, 0);
   g.add(head);
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.08), carbon);
-  tail.position.set(bx + ch + 0.08, by - 0.01, 0);
+  tail.position.set(bx + ch + 0.08, by - 0.11, 0);
   g.add(tail);
 
   // Short mast foot: collar at the mast base + small universal joint to the deck.
