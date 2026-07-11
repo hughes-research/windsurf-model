@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { taperedTube } from './util.js';
+import { taperedTube, smoothLuffX } from './util.js';
 
 // Rig-local coords: sail tack at origin, mast foot just below (short base + joint).
 export function createHardware(shape, boom) {
@@ -7,23 +7,17 @@ export function createHardware(shape, boom) {
   const carbon = new THREE.MeshStandardMaterial({ color: 0x151517, roughness: 0.35, metalness: 0.55 });
   const alloy = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.3, metalness: 0.9 });
 
-  // Luff curve: the mast bends in a smooth arc, so fit a parabola through the
-  // scanned luff instead of tracking its notches (fittings, boom cutaway).
-  const [ua, ub, uc] = [0.05, 0.5, 0.95];
-  const [xa, xb, xc] = [shape.luffX(ua), shape.luffX(ub), shape.luffX(uc)];
-  const mastX = (u) =>
-    0.015
-    + xa * ((u - ub) * (u - uc)) / ((ua - ub) * (ua - uc))
-    + xb * ((u - ua) * (u - uc)) / ((ub - ua) * (ub - uc))
-    + xc * ((u - ua) * (u - ub)) / ((uc - ua) * (uc - ub));
-  const mastPts = [new THREE.Vector3(mastX(0), -0.007, 0)];
-  for (let i = 0; i <= 14; i++) {
-    const u = i / 14;
-    mastPts.push(new THREE.Vector3(mastX(u), u * shape.height, 0));
-  }
-  g.add(new THREE.Mesh(taperedTube(mastPts, (t) => 0.027 - 0.015 * t, 14, 90), carbon));
+  const luff = smoothLuffX(shape);
+  const mastX = (u) => luff(u) + 0.015;
+  // Only the stub below the tack shows — the rest lives inside the luff sleeve.
+  const mastPts = [
+    new THREE.Vector3(mastX(0), -0.007, 0),
+    new THREE.Vector3(mastX(0.01), 0.06, 0),
+    new THREE.Vector3(mastX(0.03), 0.13, 0),
+  ];
+  g.add(new THREE.Mesh(taperedTube(mastPts, () => 0.026, 14, 8), carbon));
   const cap = new THREE.Mesh(new THREE.SphereGeometry(0.013, 10, 8), carbon);
-  cap.position.set(mastX(1), shape.height, 0);
+  cap.position.set(mastX(1), shape.height, 0); // plugs the sleeve tip
   g.add(cap);
 
   // Wishbone boom at clew height, arms traced from the top-down boom photo

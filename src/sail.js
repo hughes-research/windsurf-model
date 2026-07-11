@@ -1,5 +1,9 @@
 import * as THREE from 'three';
-import { interp1, taperedTube } from './util.js';
+import { interp1, taperedTube, smoothLuffX } from './util.js';
+
+// Luff sleeve half-width by height: fattest around the cambers at boom
+// height, tapering to the head.
+const SLEEVE_PTS = [[0, 0.045], [0.25, 0.055], [0.6, 0.042], [0.85, 0.025], [1, 0.012]];
 
 // 3D shaping applied on top of the scanned planform: draft belly peaking
 // ~40% back from the luff, deepest near boom height, leech twist up high.
@@ -131,6 +135,29 @@ export function createSail(shape) {
     }
     group.add(new THREE.Mesh(taperedTube(pts, () => 0.0028, 8, 16), rodMat));
   }
+
+  // Luff sleeve: a tapered teardrop tube along the smooth luff curve that
+  // swallows the mast, wrapped with the printed X-ply strip from the render.
+  const luff = smoothLuffX(shape);
+  const sleevePts = [];
+  for (let i = 0; i <= 30; i++) {
+    const u = i / 30;
+    sleevePts.push(new THREE.Vector3(luff(u) + 0.015, u * shape.height, 0));
+  }
+  const sleeveGeo = taperedTube(sleevePts, (t) => interp1(SLEEVE_PTS, t), 18, 120);
+  const sPos = sleeveGeo.attributes.position, sUv = sleeveGeo.attributes.uv;
+  for (let i = 0; i < sUv.count; i++) {
+    const t = sUv.getX(i);    // along the tube = u
+    const wrap = sUv.getY(i); // around the tube 0..1
+    const band = 0.02 + 0.1 * (0.5 - 0.5 * Math.cos(2 * Math.PI * wrap));
+    sUv.setXY(i, ...shape.uvFor(t, band));
+  }
+  const sleeve = new THREE.Mesh(sleeveGeo, new THREE.MeshPhysicalMaterial({
+    map: shape.texture, roughness: 0.55, clearcoat: 0.15, clearcoatRoughness: 0.5,
+  }));
+  sleeve.scale.z = 0.62; // squash the circle into a teardrop-ish fairing
+  sleeve.name = 'sleeve';
+  group.add(sleeve);
 
   // Flutter: small z wobble, strongest at the upper leech, killed at the rods.
   const base = pos.slice();

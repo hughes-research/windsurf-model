@@ -33,6 +33,17 @@ export async function loadAndScan(url, alphaEdge = 20) {
   return { img, W, H, top, bottom, rowAt, edgeAt };
 }
 
+// Smooth luff curve: the mast bends in one arc, so fit a parabola through the
+// scanned luff instead of tracking its notches (fittings, boom cutaway).
+export function smoothLuffX(shape) {
+  const [ua, ub, uc] = [0.05, 0.5, 0.95];
+  const [xa, xb, xc] = [shape.luffX(ua), shape.luffX(ub), shape.luffX(uc)];
+  return (u) =>
+    (xa * ((u - ub) * (u - uc))) / ((ua - ub) * (ua - uc))
+    + (xb * ((u - ua) * (u - uc))) / ((ub - ua) * (ub - uc))
+    + (xc * ((u - ua) * (u - ub))) / ((uc - ua) * (uc - ub));
+}
+
 // Catmull-Rom interpolation through [x, y] control points, x ascending, clamped.
 export function interp1(pts, x) {
   const n = pts.length;
