@@ -71,6 +71,18 @@ export function createHardware(shape, boom) {
   tail.position.set(bx + ch - 0.035, by - 0.11, 0); // back face ~1cm off the clew
   g.add(tail);
 
+  // Outhaul: two rope strands from the clew grommet down to the boom end,
+  // bowed slightly outward like a tensioned line.
+  const ropeMat = new THREE.MeshStandardMaterial({ color: 0xb6b0a4, roughness: 0.9 });
+  const clew = new THREE.Vector3(bx + ch, by, 0.022);
+  const boomEnd = new THREE.Vector3(bx + ch - 0.03, by - 0.105, 0);
+  for (const o of [0.008, -0.008]) {
+    const p1 = clew.clone().add(new THREE.Vector3(0, 0, o * 0.3));
+    const p2 = boomEnd.clone().add(new THREE.Vector3(0, 0, o));
+    const mid = p1.clone().lerp(p2, 0.5).add(new THREE.Vector3(0.007, 0, o * 0.4));
+    g.add(new THREE.Mesh(taperedTube([p1, mid, p2], () => 0.0028, 8, 24), ropeMat));
+  }
+
   // Short mast foot: collar at the mast base + small universal joint to the deck.
   const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.008, 16), alloy);
   collar.position.set(mastX(0), -0.007, 0);
