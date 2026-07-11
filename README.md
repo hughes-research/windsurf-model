@@ -97,7 +97,7 @@ windsurf-model/
 │   ├── main.js                         Renderer, lights, scene assembly, camera, OrbitControls, animation loop
 │   ├── util.js                         loadAndScan() (alpha silhouette scanner), smoothLuffX(), interp1() spline, taperedTube()
 │   ├── sailImage.js                    Scans the sail render → luff/leech curves, clew height, UV mapping
-│   ├── sail.js                         Parametric cloth surface: draft, twist, camber inducers, battens, luff sleeve, flutter
+│   ├── sail.js                         Parametric cloth surface: draft, twist, cams, battens, luff sleeve, wind simulation
 │   ├── boomImage.js                    Scans the boom photo → left/right arm centerlines + thickness, UV texture
 │   ├── hardware.js                     Mast stub, wishbone boom, head/tail blocks, outhaul rope, mast foot
 │   ├── boardImage.js                   Scans deck + bottom photos → board outline, deck UVs, warped bottom texture
@@ -137,7 +137,7 @@ geometry builder  ──►  THREE.BufferGeometry (custom vertex loops, not prim
 THREE.Mesh(geometry, material)  ──►  material.map = the same source photo
 ```
 
-The **sail** gets the deepest treatment — on top of its scanned 2D outline, `sail.js` adds a full 3D camber model: draft depth, chordwise profile (flat entry behind the sleeve, swept up to max draft, eased to the leech), five hard camber inducers plus one soft one, a sloped batten grid with round rod geometry, four leech mini-battens, a luff sleeve that swallows the mast, and a per-frame flutter animation that damps to zero exactly at each batten line. The **board** is a lofted superellipse hull whose outline and both textures (deck and bottom) come from two photos warped into a shared UV frame. The **boom** traces both wishbone arms directly from a top-down photo's pixel data. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full module graph and scene assembly, and [`docs/PHOTO_TO_GEOMETRY.md`](docs/PHOTO_TO_GEOMETRY.md) for the scanning technique itself.
+The **sail** gets the deepest treatment — on top of its scanned 2D outline, `sail.js` adds a full 3D camber model: draft depth, chordwise profile (flat entry behind the sleeve, swept up to max draft, eased to the leech), five hard camber inducers plus one soft one, a sloped batten grid with round rod geometry, four leech mini-battens, a luff sleeve that swallows the mast, and a live wind simulation — a gust signal opens and closes the leech in waves that travel up the sail, panels breathe between battens, flutter grows with wind strength, and all of it damps to zero exactly at each batten rod (which ride the moving cloth). The **board** is a lofted superellipse hull whose outline and both textures (deck and bottom) come from two photos warped into a shared UV frame. The **boom** traces both wishbone arms directly from a top-down photo's pixel data. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full module graph and scene assembly, and [`docs/PHOTO_TO_GEOMETRY.md`](docs/PHOTO_TO_GEOMETRY.md) for the scanning technique itself.
 
 ## Coordinate systems
 
@@ -174,7 +174,7 @@ Alpha edges should be clean (no soft drop shadow baked into the alpha) — the s
 | Move a batten | `src/sail.js` | `BATTENS` array — `{ u, du }` = luff-end position, leech-end drop |
 | Add/remove camber inducers | `src/sail.js` | `CAMS` (hard cams) / `SOFT_CAM` (soft cam) — both derive from `BATTENS`, so move the batten first |
 | Change draft depth or entry shape | `src/sail.js` | `DRAFT_PTS` (depth by height) / `PROFILE_PTS` & `CAM_PROFILE_PTS` (chordwise shape) |
-| Adjust flutter intensity | `src/sail.js` | The `0.011` amplitude coefficient in `update()` |
+| Change the wind / flutter response | `src/sail.js` | `gustAt()` (gust signal), the twist/belly modulation coefficients and `flutterAmp` in `update()` |
 | Re-rake the rig | `src/main.js` | `RIG_RAKE` (radians, negative = aft) |
 | Move the mast foot on the track | `src/main.js` | `rigPivot.position.set(x, DECK_AT_TRACK, 0)` — x is fore/aft offset in meters |
 | Change tack-to-deck gap | `src/main.js` | `rig.position.y` |
@@ -200,7 +200,7 @@ For anything involving photo-derived numbers (batten positions, draft profile), 
 
 - **Draw calls**: on the order of 25 meshes total (one sail cloth mesh, two batten-rod tubes per batten × 7 + 4 mini-battens, one sleeve, two boom-arm tubes, two outhaul strands, several small hardware primitives, one two-material board hull, one fin).
 - **Heaviest mesh**: the sail cloth is a 260 × 36 vertex grid (~9,500 vertices) — deliberately fine along the luff direction to resolve the batten pocket ridges and the camber-to-flat profile transition without visible faceting.
-- **Per-frame cost**: the flutter animation rewrites the sail's Z positions and calls `computeVertexNormals()` every frame — the only steady-state CPU cost in the render loop. Everything else (board, hardware, boom) is static geometry built once at load.
+- **Per-frame cost**: the wind simulation rewrites the sail's Z positions (cloth + batten-rod rings) and calls `computeVertexNormals()` on the cloth every frame — the only steady-state CPU cost in the render loop. Everything else (board, hardware, boom) is static geometry built once at load.
 - **Textures**: four source photos plus two canvas-composited derivatives (bottom-hull warp, boom photo-over-matte) — all well under 1 MB combined, and none are procedurally regenerated after load.
 - **Pixel ratio** is capped at 2 regardless of device pixel ratio, to bound fragment shader cost on high-DPI displays.
 

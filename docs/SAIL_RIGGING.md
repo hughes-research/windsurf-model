@@ -198,21 +198,25 @@ The sleeve's texture is a **wrap projection**, not the direct row/column lookup 
 
 The mast itself is nearly invisible: `hardware.js` only builds a short stub from just below the tack up to `u ≈ 0.03` — everything above that is implied by the sleeve. This matches reality; on a rigged race sail with a deep sleeve, you cannot see the mast at all except right at the base, below the tack, where the extension protrudes.
 
-## Flutter animation
+## Wind simulation
+
+The sail's per-frame motion is driven by a wind model, not a fixed animation. The wind itself is a smooth pseudo-random gust signal — a sum of incommensurate sines, so it never visibly repeats and needs no random number generator:
 
 ```js
-function update(t) {
-  for (let i = 0; i < count; i++) {
-    const v = params[i * 3], u = params[i * 3 + 1], damp = params[i * 3 + 2];
-    pos[i * 3 + 2] = base[i * 3 + 2]
-      + 0.011 * damp * v * v * (0.25 + 0.75 * u) * Math.sin(4.5 * t + 9 * v + 6 * u);
-  }
-  geo.attributes.position.needsUpdate = true;
-  geo.computeVertexNormals();
+function gustAt(t) {
+  const g = 0.5 + 0.35 * Math.sin(0.45 * t) + 0.25 * Math.sin(0.97 * t + 2.1)
+    + 0.15 * Math.sin(1.73 * t + 4.0);
+  return Math.max(0, Math.min(1, g));
 }
 ```
 
-A sinusoidal z-offset added on top of the static shape every frame, scaled by: `damp` (zero at battens, per above), `v²` (flutter grows toward the leech — the trailing edge, not the luff, is what visibly shivers on a real sail), and `(0.25 + 0.75u)` (more amplitude toward the head, where the sail is least tensioned). The phase term `9v + 6u` gives each point a slightly different phase so the motion reads as a traveling ripple rather than the whole cloth pulsing in unison. `computeVertexNormals()` runs every frame to keep lighting correct as the surface deforms — the only per-frame CPU cost in the entire scene (see [`ARCHITECTURE.md`](ARCHITECTURE.md#performance-profile)).
+Each frame, the gust value drives three effects, each grounded in how real sail materials respond:
+
+- **The leech opens and closes.** The twist term (stored per-vertex at build time, separately from the static shape) is scaled by `1 + 0.3·dev + 0.14·sin(1.5t − 2.4u)·(0.3 + 0.7g)` — a slow gust response plus a sine wave that *travels up the sail*, the visible ripple of a gust sweeping across. Because the twist term already scales with `u²·v`, the response concentrates at the upper leech: measured across a gust cycle, the top of the leech swings ~13 cm while the cam-locked lower leech moves ~3 cm. The leech does most of the flexing; the cammed body barely moves.
+- **Panels breathe between battens.** The belly term is scaled by `1 + 0.05·dev·(0.25 + 0.75·damp)` — a small effect, deliberately: monofilm and X-ply resist stretching, and the `damp` field pins the modulation to near zero along every batten rod, so the breathing lives in the panel centers.
+- **Leech flutter scales with wind.** The high-frequency shiver (`amp·damp·v²·(0.25 + 0.75u)·sin(4.5t + 9v + 6u)`) keeps its spatial shaping — strongest at the upper leech, zero at battens — but its amplitude is now `0.005 + 0.013·g`: near-still in a lull, lively in a gust.
+
+**The batten rods ride the moving cloth.** Every rod tube records its per-ring `(u, v, belly, twist, damp)` at build time; each frame the same deformation formula is evaluated at each ring's station and applied as a rigid z-shift to that ring. Without this, a 13 cm leech swing would visibly pull the cloth away from static rods. The cloth's `computeVertexNormals()` runs every frame to keep lighting correct as the surface deforms — the dominant per-frame CPU cost in the scene (see [`ARCHITECTURE.md`](ARCHITECTURE.md#performance-profile)); the rods skip normal recomputation since a per-ring z-shift barely changes theirs.
 
 ## Rig-level trim (in `main.js` and `hardware.js`)
 

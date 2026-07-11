@@ -79,15 +79,31 @@ function pocketBulge(u, v) {
   return POCKET_HEIGHT * b * fade;
 }
 
-/** 3D cloth surface point including belly, twist, and pocket bulge. */
-function surfacePos(shape, u, v) {
+/** Surface components at (u, v) — kept separate so the wind can modulate them. */
+function surfaceParts(shape, u, v) {
   const xl = shape.luffX(u), xr = shape.leechX(u);
   const chord = xr - xl;
   const flat = interp1(PROFILE_PTS, v);
   const prof = flat + camWeight(u) * (interp1(CAM_PROFILE_PTS, v) - flat);
   const belly = interp1(DRAFT_PTS, u) * chord * prof;
   const twist = 0.55 * u * u * v * chord; // parabolic leech twist
-  return new THREE.Vector3(xl + v * chord, u * shape.height, belly + twist + pocketBulge(u, v));
+  return { x: xl + v * chord, y: u * shape.height, belly, twist, pocket: pocketBulge(u, v) };
+}
+
+/** 3D cloth surface point including belly, twist, and pocket bulge. */
+function surfacePos(shape, u, v) {
+  const p = surfaceParts(shape, u, v);
+  return new THREE.Vector3(p.x, p.y, p.belly + p.twist + p.pocket);
+}
+
+/**
+ * Wind strength 0..1: a smooth pseudo-random gust signal built from
+ * incommensurate sines — deterministic, never repeats visibly.
+ */
+function gustAt(t) {
+  const g = 0.5 + 0.35 * Math.sin(0.45 * t) + 0.25 * Math.sin(0.97 * t + 2.1)
+    + 0.15 * Math.sin(1.73 * t + 4.0);
+  return Math.max(0, Math.min(1, g));
 }
 
 /** Flutter damping: 0 at batten rods, 1 between them. */
@@ -109,17 +125,19 @@ export function createSail(shape) {
   const count = (NU + 1) * (NV + 1);
   const pos = new Float32Array(count * 3);
   const uv = new Float32Array(count * 2);
-  const params = new Float32Array(count * 3); // (v, u, damp) for flutter
+  const params = new Float32Array(count * 3); // (v, u, damp) for the wind model
+  const comps = new Float32Array(count * 2);  // (belly, twist) — modulated live
   const idx = [];
   let k = 0;
   for (let i = 0; i <= NU; i++) {
     const u = i / NU;
     for (let j = 0; j <= NV; j++) {
       const v = j / NV;
-      const p = surfacePos(shape, u, v);
-      pos.set([p.x, p.y, p.z], k * 3);
+      const p = surfaceParts(shape, u, v);
+      pos.set([p.x, p.y, p.belly + p.twist + p.pocket], k * 3);
       uv.set(shape.uvFor(u, v), k * 2);
       params.set([v, u, battenDamp(u, v)], k * 3);
+      comps.set([p.belly, p.twist], k * 2);
       k++;
     }
   }
@@ -151,32 +169,39 @@ export function createSail(shape) {
   const group = new THREE.Group();
   group.add(mesh);
 
-  // Semi-transparent carbon batten rods in the pockets.
+  // Semi-transparent carbon batten rods in the pockets. Each tube records
+  // its per-ring (u, v, belly, twist, damp) so the rods ride the moving
+  // cloth when the wind model deforms it.
   const rodMat = new THREE.MeshPhysicalMaterial({
     color: 0xf2f2f2, transparent: true, opacity: 0.25, roughness: 0.2,
     clearcoat: 0.5, depthWrite: false,
   });
-  for (const bt of BATTENS) {
-    const pts = [];
-    for (let i = 0; i <= 20; i++) {
-      const v = 0.12 + (i / 20) * (0.985 - 0.12);
-      const p = surfacePos(shape, bt.u - bt.du * v, v);
+  const tubes = []; // { geo, baseZ, rings: [{ u, v, belly, twist, damp }], ringSize }
+  const addRod = (uAt, v0, v1, radiusFn, radial, segs) => {
+    const pts = [], samples = 20;
+    for (let i = 0; i <= samples; i++) {
+      const v = v0 + (i / samples) * (v1 - v0);
+      const p = surfacePos(shape, uAt(v), v);
       p.z += 0.004;
       pts.push(p);
     }
-    group.add(new THREE.Mesh(taperedTube(pts, (t) => 0.0045 + 0.0035 * t, 8, 40), rodMat));
-  }
+    const geo = taperedTube(pts, radiusFn, radial, segs);
+    const rings = [];
+    for (let i = 0; i <= segs; i++) {
+      const v = v0 + (i / segs) * (v1 - v0);
+      const u = uAt(v);
+      const p = surfaceParts(shape, u, v);
+      rings.push({ u, v, belly: p.belly, twist: p.twist, damp: battenDamp(u, v) });
+    }
+    const baseZ = geo.attributes.position.array.slice();
+    tubes.push({ geo, baseZ, rings, ringSize: radial + 1 });
+    group.add(new THREE.Mesh(geo, rodMat));
+  };
+  for (const bt of BATTENS) addRod((v) => bt.u - bt.du * v, 0.12, 0.985, (t) => 0.0045 + 0.0035 * t, 8, 40);
   for (const um of MINIS) {
     const chord = shape.leechX(um) - shape.luffX(um);
     const v0 = Math.max(0.6, 1 - 0.28 / chord);
-    const pts = [];
-    for (let i = 0; i <= 8; i++) {
-      const v = v0 + (i / 8) * (0.985 - v0);
-      const p = surfacePos(shape, um, v);
-      p.z += 0.003;
-      pts.push(p);
-    }
-    group.add(new THREE.Mesh(taperedTube(pts, () => 0.0028, 8, 16), rodMat));
+    addRod(() => um, v0, 0.985, () => 0.0028, 8, 16);
   }
 
   // Luff sleeve: tapered tube along smooth luff with X-ply texture wrap.
@@ -208,16 +233,49 @@ export function createSail(shape) {
   sleeve.name = 'sleeve';
   group.add(sleeve);
 
-  // Leech flutter: sinusoidal z-offset, strongest upper leech, damped at battens.
+  // Wind simulation. Each frame, three effects driven by the gust signal:
+  //  - the leech opens and closes: the twist term is scaled by a slow gust
+  //    response plus a sine wave traveling up the sail as gusts sweep across;
+  //  - the panels breathe a little between battens (monofilm resists — small,
+  //    and the batten damp field keeps the rod lines stiff);
+  //  - high-frequency leech flutter whose amplitude grows with wind strength.
   const base = pos.slice();
+  const twistModAt = (t, u, g, dev) =>
+    1 + 0.3 * dev + 0.14 * Math.sin(1.5 * t - 2.4 * u) * (0.3 + 0.7 * g);
+  const flutterAt = (t, u, v, damp, amp) =>
+    amp * damp * v * v * (0.25 + 0.75 * u) * Math.sin(4.5 * t + 9 * v + 6 * u);
   function update(t) {
+    const g = gustAt(t);
+    const dev = (g - 0.5) * 2; // -1..1 around the mean wind
+    const flutterAmp = 0.005 + 0.013 * g;
     for (let i = 0; i < count; i++) {
       const v = params[i * 3], u = params[i * 3 + 1], damp = params[i * 3 + 2];
-      pos[i * 3 + 2] = base[i * 3 + 2]
-        + 0.011 * damp * v * v * (0.25 + 0.75 * u) * Math.sin(4.5 * t + 9 * v + 6 * u);
+      const belly = comps[i * 2], twist = comps[i * 2 + 1];
+      const pocketZ = base[i * 3 + 2] - belly - twist;
+      const bellyMod = 1 + 0.05 * dev * (0.25 + 0.75 * damp);
+      pos[i * 3 + 2] = pocketZ + belly * bellyMod + twist * twistModAt(t, u, g, dev)
+        + flutterAt(t, u, v, damp, flutterAmp);
     }
     geo.attributes.position.needsUpdate = true;
     geo.computeVertexNormals();
+
+    // Rods follow the cloth: shift each tube ring by the same deformation
+    // evaluated at its station.
+    for (const tube of tubes) {
+      const arr = tube.geo.attributes.position.array;
+      for (let r = 0; r < tube.rings.length; r++) {
+        const ring = tube.rings[r];
+        const bellyMod = 1 + 0.05 * dev * (0.25 + 0.75 * ring.damp);
+        const dz = ring.belly * (bellyMod - 1)
+          + ring.twist * (twistModAt(t, ring.u, g, dev) - 1)
+          + flutterAt(t, ring.u, ring.v, ring.damp, flutterAmp);
+        for (let j = 0; j < tube.ringSize; j++) {
+          const zi = (r * tube.ringSize + j) * 3 + 2;
+          arr[zi] = tube.baseZ[zi] + dz;
+        }
+      }
+      tube.geo.attributes.position.needsUpdate = true;
+    }
   }
   return { mesh: group, update };
 }
