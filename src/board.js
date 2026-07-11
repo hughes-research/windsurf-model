@@ -54,7 +54,8 @@ export function createBoard(shape) {
     clearcoat: 0.06, clearcoatRoughness: 0.6, envMapIntensity: 0.35,
   });
   const hullMat = new THREE.MeshPhysicalMaterial({
-    color: 0xeef0f2, roughness: 0.25, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.2,
+    map: shape.bottomTexture, color: 0xe4e4e4, roughness: 0.85, metalness: 0,
+    clearcoat: 0.06, clearcoatRoughness: 0.6, envMapIntensity: 0.35,
   });
   const hull = new THREE.Mesh(geo, [deckMat, hullMat]);
   hull.name = 'board';

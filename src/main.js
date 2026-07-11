@@ -78,7 +78,7 @@ async function init() {
   controls.enableDamping = true;
   controls.minDistance = 2.5;
   controls.maxDistance = 14;
-  controls.maxPolarAngle = 1.62;
+  controls.maxPolarAngle = 2.7; // allow orbiting under the board to see the hull
   controls.autoRotate = true;
   controls.autoRotateSpeed = 0.9;
   let idleTimer;
