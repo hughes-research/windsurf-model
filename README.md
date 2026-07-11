@@ -6,6 +6,20 @@ A photorealistic, fully procedural 3D viewer for a Severne Mach slalom windsurf 
 
 Drag to orbit, scroll to zoom, and the kit auto-rotates gently when idle — a clean studio presentation built for inspecting a product, not a game or a simulator.
 
+<p align="center">
+  <img src="docs/images/hero.png" alt="Severne Mach 6.5 kit rendered in the studio viewer" width="800"><br>
+  <sub>Sail, mast, wishbone boom, board, and fin — every mesh generated from math, every texture and silhouette read from a catalog photo.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/images/sail-detail.png" alt="Close-up of the sail: batten pockets, camber, and luff sleeve" width="360">
+  &nbsp;
+  <img src="docs/images/underside.png" alt="Board underside with fin, seen from below the rig" width="360">
+</p>
+<p align="center">
+  <sub>Left: batten pockets, camber inducers, and the luff sleeve. Right: the hull bottom and fin, orbited into view from underneath.</sub>
+</p>
+
 ## Support this project
 
 The work — the code, the photo-to-geometry pipeline, all of it — is free: GPL-licensed, built in the open, no team and no funding behind it. It ran entirely on conversation and LLM tokens. If you'd like to see more of this — more parts finished (a scanned fin, a footstrap), more kits, the technique applied to other product photography — the most direct way to help is covering that token cost: **[sponsor @hughes-research on GitHub](https://github.com/sponsors/hughes-research)**. Every bit of support goes straight back into building the next one.
