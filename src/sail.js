@@ -18,12 +18,22 @@ const BATTENS = [
   { u: 0.85, du: -0.014 },     // measured: gentle rise aft
   { u: 0.9365, du: -0.047 },
 ];
+// Four leech mini-battens midway between the main battens (first one
+// measured at 0.375 in the render; the rest follow the midpoint pattern).
+// They only exist near the leech — miniGate ramps them in aft of ~78% chord.
+const MINIS = [0.375, 0.5075, 0.651, 0.786];
+const miniGate = (v) => Math.max(0, Math.min(1, (v - 0.78) * 8));
+
 const POCKET_SIGMA = 0.009, POCKET_HEIGHT = 0.006; // residual cloth tension over the rod
 function pocketBulge(u, v) {
   let b = 0;
   for (const bt of BATTENS) {
     const x = (u - (bt.u - bt.du * v)) / POCKET_SIGMA;
     b += Math.exp(-x * x);
+  }
+  for (const um of MINIS) {
+    const x = (u - um) / POCKET_SIGMA;
+    b += 0.6 * miniGate(v) * Math.exp(-x * x);
   }
   // pockets stop at the mast sleeve and taper before the leech edge
   const fade = Math.max(0, Math.min(1, (v - 0.1) * 10, (0.98 - v) * 15));
@@ -43,6 +53,7 @@ function surfacePos(shape, u, v) {
 function battenDamp(u, v) {
   let s = 0;
   for (const bt of BATTENS) s += Math.exp(-(((u - (bt.u - bt.du * v)) / 0.012) ** 2));
+  for (const um of MINIS) s += miniGate(v) * Math.exp(-(((u - um) / 0.012) ** 2));
   return Math.max(0, 1 - s);
 }
 
@@ -107,6 +118,18 @@ export function createSail(shape) {
       pts.push(p);
     }
     group.add(new THREE.Mesh(taperedTube(pts, (t) => 0.0045 + 0.0035 * t, 8, 40), rodMat));
+  }
+  for (const um of MINIS) {
+    const chord = shape.leechX(um) - shape.luffX(um);
+    const v0 = Math.max(0.6, 1 - 0.28 / chord);
+    const pts = [];
+    for (let i = 0; i <= 8; i++) {
+      const v = v0 + (i / 8) * (0.985 - v0);
+      const p = surfacePos(shape, um, v);
+      p.z += 0.003;
+      pts.push(p);
+    }
+    group.add(new THREE.Mesh(taperedTube(pts, () => 0.0028, 8, 16), rodMat));
   }
 
   // Flutter: small z wobble, strongest at the upper leech, killed at the rods.
