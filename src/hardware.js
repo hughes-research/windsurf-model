@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { taperedTube } from './util.js';
 
 // Rig-local coords: sail tack at origin, mast foot just below (short base + joint).
-export function createHardware(shape) {
+export function createHardware(shape, boom) {
   const g = new THREE.Group();
   const carbon = new THREE.MeshStandardMaterial({ color: 0x151517, roughness: 0.35, metalness: 0.55 });
   const alloy = new THREE.MeshStandardMaterial({ color: 0xb9bec4, roughness: 0.3, metalness: 0.9 });
@@ -26,19 +26,40 @@ export function createHardware(shape) {
   cap.position.set(mastX(1), shape.height, 0);
   g.add(cap);
 
-  // Wishbone boom at clew height, both sides, meeting past the clew.
+  // Wishbone boom at clew height, arms traced from the top-down boom photo
+  // and planar-projected with its texture (top and bottom).
   const bu = shape.clewU;
   const by = bu * shape.height;
   const bx = mastX(bu);
   const ch = shape.leechX(bu) - bx;
-  for (const s of [1, -1]) {
-    const pts = [
-      new THREE.Vector3(bx + 0.03, by, s * 0.03),
-      new THREE.Vector3(bx + 0.42 * ch, by - 0.02, s * 0.27),
-      new THREE.Vector3(bx + 0.82 * ch, by - 0.045, s * 0.17),
-      new THREE.Vector3(bx + ch + 0.1, by - 0.06, s * 0.03),
-    ];
-    g.add(new THREE.Mesh(taperedTube(pts, () => 0.016, 12, 60), carbon));
+  const bl = ch + 0.13;             // boom length front->tail, meters
+  const mpp = bl / boom.length;     // meters per photo pixel
+  const boomMat = new THREE.MeshPhysicalMaterial({
+    map: boom.texture, roughness: 0.55, metalness: 0.1, clearcoat: 0.2, clearcoatRoughness: 0.4,
+  });
+  for (const side of ['left', 'right']) {
+    const pts = [], radii = [];
+    for (const smp of boom.arms(16)) {
+      const { c, r } = smp[side];
+      pts.push(new THREE.Vector3(
+        bx + smp.d * mpp,
+        by - 0.06 * Math.pow(smp.d / boom.length, 1.2), // slight droop aft
+        (c - boom.centerX) * mpp,
+      ));
+      radii.push(THREE.MathUtils.clamp(r * mpp, 0.008, 0.026)); // rope merges guard
+    }
+    const rAt = (t) => {
+      const f = t * (radii.length - 1), i = Math.floor(f);
+      return radii[i] + (radii[Math.min(i + 1, radii.length - 1)] - radii[i]) * (f - i);
+    };
+    const geo = taperedTube(pts, rAt, 12, 60);
+    const posA = geo.attributes.position, uvA = geo.attributes.uv;
+    for (let i = 0; i < posA.count; i++) { // project photo from above
+      const imgX = boom.centerX + posA.getZ(i) / mpp;
+      const imgY = boom.top + (posA.getX(i) - bx) / mpp;
+      uvA.setXY(i, imgX / boom.W, 1 - imgY / boom.H);
+    }
+    g.add(new THREE.Mesh(geo, boomMat));
   }
   const head = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.11), carbon);
   head.position.set(bx + 0.01, by, 0);
