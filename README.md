@@ -193,4 +193,6 @@ Requires WebGL2 (via Three.js's `WebGLRenderer`) and ES modules. Tested against 
 
 ## License
 
-Private project (`package.json`: `"private": true`). Product photography and the Severne name/branding belong to their respective owner and are used here for a non-commercial demonstration of the modeling technique.
+**Code**: [GNU General Public License v3.0 or later](LICENSE) — free as in speech *and* free as in beer. Use, study, modify, and redistribute it, including commercially, as long as derivative works stay under GPL-3.0-or-later too (copyleft) and you keep the license and copyright notice attached.
+
+**Assets**: the four source photographs (`026-Mach-9-render-final-lr-1.png`, `src/board_map.png`, `board_bottom.png`, `boom.png`) and the Severne name/branding are **not** covered by the GPL grant above — they belong to their respective owner and are used here for a non-commercial demonstration of the modeling technique. The GPL applies to the JavaScript, HTML, and documentation in this repository, not to the third-party product photography it happens to load.
