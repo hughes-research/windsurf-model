@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Severne Mach — 3D</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body {
+      background: radial-gradient(120% 90% at 50% 35%, #2c3038 0%, #16181c 55%, #0a0b0d 100%);
+      font-family: system-ui, sans-serif;
+    }
+    canvas { display: block; }
+    #caption {
+      position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%);
+      color: #8f96a0; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+      white-space: nowrap; user-select: none; pointer-events: none;
+    }
+    #caption b { color: #e6e9ee; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div id="caption"><b>Severne Mach 6.5</b> &nbsp;·&nbsp; drag to orbit · scroll to zoom</div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
