@@ -5,15 +5,24 @@ import { interp1, taperedTube } from './util.js';
 // ~40% back from the luff, deepest near boom height, leech twist up high.
 const DRAFT_PTS = [[0, 0.06], [0.235, 0.095], [0.5, 0.075], [0.8, 0.038], [1, 0.008]];
 
-// Batten u-positions measured from the dark stripes in the catalog render
-// (two interpolated where black print hides them). Pockets bulge to the
-// belly side as gaussian ridges.
-const BATTENS = [0.16, 0.3, 0.435, 0.58, 0.7, 0.83, 0.95];
+// Batten lines measured from the dark stripes in the catalog render (two
+// interpolated where black print hides them). u = position at the luff;
+// du = how far the rod's rear drops by the leech (u units — lower battens
+// fan downward aft). Pockets bulge to the belly side as gaussian ridges.
+const BATTENS = [
+  { u: 0.16, du: 0.0235 }, // rear down 10 cm
+  { u: 0.3, du: 0.0165 },  // rear down 7 cm
+  { u: 0.435, du: 0 },
+  { u: 0.58, du: 0 },
+  { u: 0.7, du: 0 },
+  { u: 0.83, du: 0 },
+  { u: 0.95, du: 0 },
+];
 const POCKET_SIGMA = 0.009, POCKET_HEIGHT = 0.006; // residual cloth tension over the rod
 function pocketBulge(u, v) {
   let b = 0;
-  for (const ub of BATTENS) {
-    const x = (u - ub) / POCKET_SIGMA;
+  for (const bt of BATTENS) {
+    const x = (u - (bt.u - bt.du * v)) / POCKET_SIGMA;
     b += Math.exp(-x * x);
   }
   // pockets stop at the mast sleeve and taper before the leech edge
@@ -31,9 +40,9 @@ function surfacePos(shape, u, v) {
 }
 
 // Battens stiffen the cloth: flutter scale is 0 at a rod, 1 between rods.
-function battenDamp(u) {
+function battenDamp(u, v) {
   let s = 0;
-  for (const ub of BATTENS) s += Math.exp(-(((u - ub) / 0.012) ** 2));
+  for (const bt of BATTENS) s += Math.exp(-(((u - (bt.u - bt.du * v)) / 0.012) ** 2));
   return Math.max(0, 1 - s);
 }
 
@@ -47,13 +56,12 @@ export function createSail(shape) {
   let k = 0;
   for (let i = 0; i <= NU; i++) {
     const u = i / NU;
-    const damp = battenDamp(u);
     for (let j = 0; j <= NV; j++) {
       const v = j / NV;
       const p = surfacePos(shape, u, v);
       pos.set([p.x, p.y, p.z], k * 3);
       uv.set(shape.uvFor(u, v), k * 2);
-      params.set([v, u, damp], k * 3);
+      params.set([v, u, battenDamp(u, v)], k * 3);
       k++;
     }
   }
@@ -87,11 +95,11 @@ export function createSail(shape) {
   const group = new THREE.Group();
   group.add(mesh);
   const rodMat = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.45, metalness: 0.3 });
-  for (const ub of BATTENS) {
+  for (const bt of BATTENS) {
     const pts = [];
     for (let i = 0; i <= 20; i++) {
       const v = 0.12 + (i / 20) * (0.985 - 0.12);
-      const p = surfacePos(shape, ub, v);
+      const p = surfacePos(shape, bt.u - bt.du * v, v);
       p.z += 0.004; // rod rides on the cloth surface
       pts.push(p);
     }
