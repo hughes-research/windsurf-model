@@ -16,7 +16,7 @@ export function createHardware(shape) {
     + xa * ((u - ub) * (u - uc)) / ((ua - ub) * (ua - uc))
     + xb * ((u - ua) * (u - uc)) / ((ub - ua) * (ub - uc))
     + xc * ((u - ua) * (u - ub)) / ((uc - ua) * (uc - ub));
-  const mastPts = [new THREE.Vector3(mastX(0), -0.025, 0)];
+  const mastPts = [new THREE.Vector3(mastX(0), -0.013, 0)];
   for (let i = 0; i <= 14; i++) {
     const u = i / 14;
     mastPts.push(new THREE.Vector3(mastX(u), u * shape.height, 0));
@@ -48,11 +48,11 @@ export function createHardware(shape) {
   g.add(tail);
 
   // Short mast foot: collar at the mast base + small universal joint to the deck.
-  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.022, 16), alloy);
-  collar.position.set(mastX(0), -0.022, 0);
+  const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.013, 16), alloy);
+  collar.position.set(mastX(0), -0.013, 0);
   g.add(collar);
-  const joint = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.018, 12), carbon);
-  joint.position.set(mastX(0), -0.037, 0);
+  const joint = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.02, 0.011, 12), carbon);
+  joint.position.set(mastX(0), -0.022, 0);
   g.add(joint);
 
   return g;
