@@ -1,5 +1,38 @@
 import * as THREE from 'three';
 
+// Load an image and scan its alpha silhouette: [left, right] pixel per row.
+// u runs 0 (bottom-most content row) -> 1 (top-most).
+export async function loadAndScan(url, alphaEdge = 20) {
+  const img = new Image();
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = () => reject(new Error(`${url} failed to load`));
+    img.src = url;
+  });
+  const W = img.width, H = img.height;
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const data = ctx.getImageData(0, 0, W, H).data;
+  const alphaAt = (x, y) => data[(y * W + x) * 4 + 3];
+
+  const edges = new Array(H).fill(null);
+  for (let y = 0; y < H; y++) {
+    let l = -1;
+    for (let x = 0; x < W; x++) if (alphaAt(x, y) > alphaEdge) { l = x; break; }
+    if (l < 0) continue;
+    for (let x = W - 1; x >= l; x--) if (alphaAt(x, y) > alphaEdge) { edges[y] = [l, x]; break; }
+  }
+  const top = edges.findIndex(Boolean);
+  let bottom = H - 1;
+  while (!edges[bottom]) bottom--;
+
+  const rowAt = (u) => bottom - u * (bottom - top);
+  const edgeAt = (u) => edges[Math.round(rowAt(u))] ?? [0, 0];
+  return { img, W, H, top, bottom, rowAt, edgeAt };
+}
+
 // Catmull-Rom interpolation through [x, y] control points, x ascending, clamped.
 export function interp1(pts, x) {
   const n = pts.length;
@@ -46,7 +79,7 @@ export function taperedTube(points, radiusFn, radialSegments = 14, tubularSegmen
   for (let i = 0; i < tubularSegments; i++)
     for (let j = 0; j < radialSegments; j++) {
       const a = i * ring + j;
-      idx.push(a, a + ring, a + 1, a + 1, a + ring, a + ring + 1);
+      idx.push(a, a + 1, a + ring, a + 1, a + ring + 1, a + ring);
     }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));

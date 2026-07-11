@@ -34,7 +34,9 @@ src/
   time (`sailImage.js`), so the mesh outline matches the render exactly and
   UVs map straight into the image; draft belly and leech twist are added in
   3D on top. The PNG's own alpha gives the translucent window for free.
-- **Board**: plain white (user request) — no deck graphics.
+- **Board**: outline and deck texture from a scanned top-down deck photo
+  (`src/board_map.png`, user-supplied), planar-projected onto the deck half
+  of the loft; hull stays plain white (user request).
 - **Board**: superellipse cross-sections lofted along length with rocker;
   raked extruded fin.
 - **Studio**: RoomEnvironment IBL + key/rim lights, fake radial-gradient

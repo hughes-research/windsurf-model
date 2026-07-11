@@ -2,9 +2,10 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { loadSailShape } from './sailImage.js';
+import { loadBoardShape } from './boardImage.js';
 import { createSail } from './sail.js';
 import { createHardware } from './hardware.js';
-import { createBoard, DECK_AT_TRACK } from './board.js';
+import { createBoard, DECK_AT_TRACK, LEN } from './board.js';
 
 async function init() {
   const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -27,10 +28,10 @@ async function init() {
   scene.add(rim);
 
   // Kit: board floating, rig raked slightly aft, pivoting at the mast base.
-  const shape = await loadSailShape();
+  const [shape, boardShape] = await Promise.all([loadSailShape(), loadBoardShape(LEN)]);
   const FLOAT = 0.5;
   const kit = new THREE.Group();
-  kit.add(createBoard());
+  kit.add(createBoard(boardShape));
   const sail = createSail(shape);
   const rig = new THREE.Group();
   rig.add(sail.mesh, createHardware(shape));
