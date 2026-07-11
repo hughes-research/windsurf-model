@@ -1,18 +1,42 @@
+/**
+ * Sail planform and texture loader.
+ *
+ * Scans the official Severne catalog render alpha channel to derive the
+ * sail outline, luff/leech curves, and UV mapping. Geometry in sail.js
+ * builds on top of this 2D shape.
+ *
+ * Coordinate system:
+ *   u = 0 at foot (tack), u = 1 at head
+ *   x in meters, tack at x = 0
+ *
+ * @module sailImage
+ */
+
 import * as THREE from 'three';
 import { loadAndScan } from './util.js';
 import sailUrl from '../026-Mach-9-render-final-lr-1.png';
 
-const HEIGHT = 4.25; // rigged sail height, meters
+/** Rigged sail height in meters (luff length). */
+const HEIGHT = 4.25;
 
-// Loads the catalog render and scans its alpha silhouette so geometry and UVs
-// follow the real sail outline. u: foot(0)->head(1). x in meters, tack at 0.
-// Alpha threshold 20: the translucent window (~27) still counts as "inside".
+/**
+ * Load the catalog render and build a parametric sail shape.
+ *
+ * @returns {Promise<{
+ *   texture: THREE.Texture,
+ *   height: number,
+ *   clewU: number,
+ *   luffX: (u: number) => number,
+ *   leechX: (u: number) => number,
+ *   uvFor: (u: number, v: number) => [number, number]
+ * }>}
+ */
 export async function loadSailShape() {
   const { img, W, H, top, bottom, rowAt, edgeAt } = await loadAndScan(sailUrl);
   const scale = HEIGHT / (bottom - top);
   const x0 = edgeAt(0)[0]; // tack = x origin
 
-  // clew = rightmost point of the whole silhouette -> boom height
+  // Clew = rightmost point of the whole silhouette → boom height.
   let clewU = 0.25, maxR = 0;
   for (let i = 0; i <= 200; i++) {
     const u = i / 200;

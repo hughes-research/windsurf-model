@@ -1,11 +1,25 @@
+/**
+ * Board outline and texture loader.
+ *
+ * Uses a top-down deck photo for outline width and deck UVs, plus a bottom
+ * photo warped into the same frame for the hull texture. Both share one UV set
+ * via planar top projection.
+ *
+ * Parameter t runs tail (0, image bottom) → nose (1, image top).
+ * Parameter s runs 0 → 1 across the board width at each station.
+ *
+ * @module boardImage
+ */
+
 import * as THREE from 'three';
 import { loadAndScan } from './util.js';
 import deckUrl from './board_map.png';
 import bottomUrl from '../board_bottom.png';
 
-const CORRECT = 'brightness(0.85) saturate(1.25) contrast(1.05)'; // exports run light/pink
+/** CSS filter applied to exports that run light/pink. */
+const CORRECT = 'brightness(0.85) saturate(1.25) contrast(1.05)';
 
-// Content x-bounds of a scan, from sampled rows.
+/** Content x-bounds of a scan, sampled across 51 rows. */
 function bbox(scan) {
   let l = Infinity, r = -Infinity;
   for (let i = 0; i <= 50; i++) {
@@ -16,9 +30,17 @@ function bbox(scan) {
   return { l, r };
 }
 
-// Loads the top-down deck photo (drives outline + UVs) and the bottom photo
-// (baked into the deck photo's frame so both textures share one UV set).
-// t: tail(0, image bottom) -> nose(1, image top). s: 0..1 across the width.
+/**
+ * Load deck and bottom photos and build a board shape descriptor.
+ *
+ * @param {number} length - Target board length in meters.
+ * @returns {Promise<{
+ *   texture: THREE.Texture,
+ *   bottomTexture: THREE.Texture,
+ *   widthAt: (t: number) => number,
+ *   uvFor: (t: number, s: number) => [number, number]
+ * }>}
+ */
 export async function loadBoardShape(length) {
   const [deck, bottom] = await Promise.all([loadAndScan(deckUrl), loadAndScan(bottomUrl)]);
   const { W, H } = deck;
@@ -61,7 +83,7 @@ export async function loadBoardShape(length) {
     },
     uvFor(t, s) {
       const [l, r] = deck.edgeAt(t);
-      // inset 2px so anti-aliased edge pixels don't smear down the rails
+      // Inset 2px so anti-aliased edge pixels don't smear down the rails.
       return [(l + 2 + s * (r - l - 4)) / W, 1 - deck.rowAt(t) / H];
     },
   };

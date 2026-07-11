@@ -1,9 +1,28 @@
+/**
+ * Wishbone boom shape and texture loader.
+ *
+ * Scans a top-down boom photo: mast clamp at image top, tail end at bottom.
+ * Extracts both arm centerlines and thickness per row for 3D tube placement.
+ *
+ * @module boomImage
+ */
+
 import * as THREE from 'three';
 import boomUrl from '../boom.png';
 
-// Top-down wishbone boom photo: mast clamp at image top, tail end at bottom.
-// Scans both arm runs per row for centerline + thickness, and bakes a texture
-// for planar projection from above.
+/**
+ * Load and scan the boom photo.
+ *
+ * @returns {Promise<{
+ *   texture: THREE.CanvasTexture,
+ *   W: number,
+ *   H: number,
+ *   top: number,
+ *   length: number,
+ *   centerX: number,
+ *   arms: (n: number) => Array<{ d: number, left: { c: number, r: number }, right: { c: number, r: number } }>
+ * }>}
+ */
 export async function loadBoomShape() {
   const img = new Image();
   await new Promise((resolve, reject) => {
@@ -18,7 +37,7 @@ export async function loadBoomShape() {
   ctx.drawImage(img, 0, 0);
   const data = ctx.getImageData(0, 0, W, H).data;
 
-  // Opaque runs per row.
+  // Opaque pixel runs per row.
   const spans = [];
   for (let y = 0; y < H; y++) {
     const row = [];
@@ -45,7 +64,7 @@ export async function loadBoomShape() {
   const armTop = armRows[0], armBottom = armRows[armRows.length - 1];
   const mid = (sp) => (sp[0] + sp[1]) / 2;
 
-  // n samples per arm: d = px behind the boom front, c/r = center/half-width px.
+  /** Sample n stations along each arm: d = px behind boom front, c/r = center/half-width. */
   function arms(n) {
     const out = [];
     for (let i = 0; i < n; i++) {

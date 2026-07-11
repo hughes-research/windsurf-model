@@ -1,7 +1,22 @@
+/**
+ * Rig hardware: mast, boom, blocks, outhaul, and mast base.
+ *
+ * Rig-local coordinates: sail tack at origin, mast foot just below.
+ * Boom arms are traced from the scanned top-down boom photo with planar UV projection.
+ *
+ * @module hardware
+ */
+
 import * as THREE from 'three';
 import { taperedTube, smoothLuffX } from './util.js';
 
-// Rig-local coords: sail tack at origin, mast foot just below (short base + joint).
+/**
+ * Build mast, boom, head/tail blocks, outhaul lines, and mast base.
+ *
+ * @param {object} shape - Sail shape from {@link loadSailShape} (height, clewU, luffX, leechX).
+ * @param {object} boom - Boom shape from {@link loadBoomShape} (texture, arms, length, etc.).
+ * @returns {THREE.Group}
+ */
 export function createHardware(shape, boom) {
   const g = new THREE.Group();
   const carbon = new THREE.MeshStandardMaterial({ color: 0x151517, roughness: 0.35, metalness: 0.55 });
@@ -20,13 +35,12 @@ export function createHardware(shape, boom) {
   cap.position.set(mastX(1), shape.height, 0); // plugs the sleeve tip
   g.add(cap);
 
-  // Wishbone boom at clew height, arms traced from the top-down boom photo
-  // and planar-projected with its texture (top and bottom).
+  // Wishbone boom at clew height, arms traced from the top-down boom photo.
   const bu = shape.clewU;
   const by = bu * shape.height;
   const bx = mastX(bu);
   const ch = shape.leechX(bu) - bx;
-  const bl = ch + 0.01;             // boom length front->tail: end ~0.5cm past the clew
+  const bl = ch + 0.01;             // boom length front→tail: end ~0.5 cm past clew
   const mpp = bl / boom.length;     // meters per photo pixel
   const boomMat = new THREE.MeshPhysicalMaterial({
     map: boom.texture, roughness: 0.55, metalness: 0.1, clearcoat: 0.2, clearcoatRoughness: 0.4,
@@ -62,11 +76,10 @@ export function createHardware(shape, boom) {
   head.position.set(bx + 0.01, by + 0.36, 0);
   g.add(head);
   const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.08), carbon);
-  tail.position.set(bx + ch - 0.035, by - 0.11, 0); // back face ~1cm off the clew
+  tail.position.set(bx + ch - 0.035, by - 0.11, 0); // back face ~1 cm off clew
   g.add(tail);
 
-  // Outhaul: two rope strands from the clew grommet down to the boom end,
-  // bowed slightly outward like a tensioned line.
+  // Outhaul: two rope strands from clew grommet to boom end.
   const ropeMat = new THREE.MeshStandardMaterial({ color: 0xb6b0a4, roughness: 0.9 });
   const clew = new THREE.Vector3(bx + ch, by, 0.022);
   const boomEnd = new THREE.Vector3(bx + ch - 0.03, by - 0.105, 0);
@@ -77,7 +90,7 @@ export function createHardware(shape, boom) {
     g.add(new THREE.Mesh(taperedTube([p1, mid, p2], () => 0.0028, 8, 24), ropeMat));
   }
 
-  // Short mast foot: collar at the mast base + small universal joint to the deck.
+  // Mast foot: collar at mast base + universal joint to deck.
   const collar = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.008, 16), alloy);
   collar.position.set(mastX(0), -0.007, 0);
   g.add(collar);

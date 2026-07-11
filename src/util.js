@@ -1,7 +1,33 @@
+/**
+ * Shared geometry and image-scanning utilities.
+ *
+ * Used by sail, board, boom, and hardware modules to build meshes from
+ * catalog photos and parametric curves.
+ *
+ * @module util
+ */
+
 import * as THREE from 'three';
 
-// Load an image and scan its alpha silhouette: [left, right] pixel per row.
-// u runs 0 (bottom-most content row) -> 1 (top-most).
+/**
+ * Load an image and scan its alpha silhouette row-by-row.
+ *
+ * For each image row with opaque pixels, records the leftmost and rightmost
+ * alpha edge. Rows are normalized to a vertical parameter u ∈ [0, 1] where
+ * u = 0 is the bottom-most content row and u = 1 is the top-most.
+ *
+ * @param {string} url - Image URL to load.
+ * @param {number} [alphaEdge=20] - Alpha threshold (0–255) for edge detection.
+ * @returns {Promise<{
+ *   img: HTMLImageElement,
+ *   W: number,
+ *   H: number,
+ *   top: number,
+ *   bottom: number,
+ *   rowAt: (u: number) => number,
+ *   edgeAt: (u: number) => [number, number]
+ * }>}
+ */
 export async function loadAndScan(url, alphaEdge = 20) {
   const img = new Image();
   await new Promise((resolve, reject) => {
@@ -33,8 +59,15 @@ export async function loadAndScan(url, alphaEdge = 20) {
   return { img, W, H, top, bottom, rowAt, edgeAt };
 }
 
-// Smooth luff curve: the mast bends in one arc, so fit a parabola through the
-// scanned luff instead of tracking its notches (fittings, boom cutaway).
+/**
+ * Fit a smooth parabola through the scanned luff curve.
+ *
+ * Real masts bend in a single arc; this replaces noisy luff samples
+ * (fittings, boom cutaway) with a continuous curve for sleeve and mast placement.
+ *
+ * @param {{ luffX: (u: number) => number }} shape - Sail shape with luffX(u).
+ * @returns {(u: number) => number} Smoothed luff x-position in meters.
+ */
 export function smoothLuffX(shape) {
   const [ua, ub, uc] = [0.05, 0.5, 0.95];
   const [xa, xb, xc] = [shape.luffX(ua), shape.luffX(ub), shape.luffX(uc)];
@@ -44,7 +77,15 @@ export function smoothLuffX(shape) {
     + (xc * ((u - ua) * (u - ub))) / ((uc - ua) * (uc - ub));
 }
 
-// Catmull-Rom interpolation through [x, y] control points, x ascending, clamped.
+/**
+ * Catmull-Rom spline through [x, y] control points.
+ *
+ * x must be ascending; values outside the range clamp to the endpoints.
+ *
+ * @param {Array<[number, number]>} pts - Control points [x, y].
+ * @param {number} x - Query x.
+ * @returns {number} Interpolated y.
+ */
 export function interp1(pts, x) {
   const n = pts.length;
   if (x <= pts[0][0]) return pts[0][1];
@@ -65,7 +106,18 @@ export function interp1(pts, x) {
        + (-2 * t3 + 3 * t2) * y1 + (t3 - t2) * m1;
 }
 
-// Tube along a point path with per-t radius (TubeGeometry can't taper).
+/**
+ * Build a tube mesh along a 3D path with a variable radius.
+ *
+ * Three.js TubeGeometry cannot taper, so this constructs vertex rings
+ * using Frenet frames from a Catmull-Rom curve.
+ *
+ * @param {THREE.Vector3[]} points - Path control points.
+ * @param {(t: number) => number} radiusFn - Radius at t ∈ [0, 1] along the path.
+ * @param {number} [radialSegments=14] - Vertices around each ring.
+ * @param {number} [tubularSegments=64] - Rings along the path.
+ * @returns {THREE.BufferGeometry}
+ */
 export function taperedTube(points, radiusFn, radialSegments = 14, tubularSegments = 64) {
   const curve = new THREE.CatmullRomCurve3(points);
   const frames = curve.computeFrenetFrames(tubularSegments, false);
