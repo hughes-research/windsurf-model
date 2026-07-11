@@ -35,10 +35,10 @@ async function init() {
   const sail = createSail(shape);
   const rig = new THREE.Group();
   rig.add(sail.mesh, createHardware(shape));
-  rig.position.y = 0.028; // tack rides just off the deck
+  rig.position.y = 0.015; // tack rides just off the deck
   const rigPivot = new THREE.Group();
   rigPivot.rotation.z = -0.13;
-  rigPivot.position.y = DECK_AT_TRACK;
+  rigPivot.position.set(0.02, DECK_AT_TRACK, 0); // mast track sits 2cm aft
   rigPivot.add(rig);
   kit.add(rigPivot);
   kit.position.y = FLOAT;
