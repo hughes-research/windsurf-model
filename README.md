@@ -1,113 +1,196 @@
 # Severne Mach — 3D Showcase
 
-Interactive 3D viewer for a Severne Mach slalom windsurf kit: 6.5 m² sail, mast, boom, slalom board, and fin. The scene runs in the browser with orbit/zoom controls, auto-rotation when idle, and subtle sail flutter.
+A photorealistic, fully procedural 3D viewer for a Severne Mach slalom windsurf kit — 6.5 m² cambered race sail, mast, wishbone boom, slalom board, and fin — rendered in the browser with [Three.js](https://threejs.org/). There is no 3D-modeled asset anywhere in this project: every mesh is generated from math at load time, and every texture and silhouette is extracted from the manufacturer's own catalog photography. Four PNGs in, one interactive rig out.
 
-Built with **Vite** and **Three.js**. Geometry is procedural; textures come from catalog photos scanned at load time.
+Drag to orbit, scroll to zoom, and the kit auto-rotates gently when idle — a clean studio presentation built for inspecting a product, not a game or a simulator.
 
-## Features
+## Table of contents
 
-- **Photo-driven outlines** — Sail, board, and boom shapes are extracted from PNG alpha channels, so mesh silhouettes match the source renders exactly.
-- **Parametric sail** — Draft belly, leech twist, camber inducers, batten pockets, and luff sleeve are added in 3D on top of the scanned planform.
-- **Lofted board** — Superellipse cross-sections with rocker, textured deck and bottom, raked fin.
-- **Studio presentation** — RoomEnvironment IBL, key/rim lights, radial contact shadow, dark gradient backdrop.
-- **Interaction** — OrbitControls with damping; auto-rotate pauses on drag and resumes after 3 s idle.
+- [Quick start](#quick-start)
+- [Controls](#controls)
+- [Why this exists](#why-this-exists)
+- [Project structure](#project-structure)
+- [How it works](#how-it-works)
+- [Coordinate systems](#coordinate-systems)
+- [Required assets](#required-assets)
+- [Customization cheat sheet](#customization-cheat-sheet)
+- [Documentation](#documentation)
+- [Performance](#performance)
+- [Browser support](#browser-support)
+- [Known limitations](#known-limitations)
+- [Tech stack](#tech-stack)
+- [License](#license)
 
 ## Quick start
+
+Requires [Node.js](https://nodejs.org/) 18 or later.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open the URL Vite prints (typically `http://localhost:5173`).
-
-Other scripts:
+Open the URL Vite prints — typically `http://localhost:5173`.
 
 | Command | Description |
-|---------|-------------|
+|---|---|
+| `npm install` | Install dependencies (Three.js, Vite) |
+| `npm run dev` | Start the dev server with hot module reload |
 | `npm run build` | Production build to `dist/` |
-| `npm run preview` | Serve the production build locally |
+| `npm run preview` | Serve the production build locally, to sanity-check the build before deploying |
+
+The app is a static site once built — `dist/` can be hosted anywhere that serves plain files (no server-side code, no API, no database).
+
+## Controls
+
+| Input | Action |
+|---|---|
+| Click + drag | Orbit the camera around the kit |
+| Scroll / pinch | Zoom in and out (clamped 2.5 m – 14 m from the target) |
+| Idle for 3 seconds | Camera resumes a slow auto-rotate |
+| Window resize | Camera automatically re-frames the whole kit |
+
+Orbiting is unlocked far enough to swing underneath the board and inspect the hull bottom, fin, and boom from below — the polar angle is *not* clamped to a hemisphere the way most product viewers are.
+
+## Why this exists
+
+This project started as a question: can you build a convincing, riggable 3D product model from nothing but the same catalog photos a manufacturer already publishes — no photogrammetry, no 3D scanning, no modeling software — and have every dimension be *correct*, not just plausible?
+
+The answer turned out to be yes, provided two things are true: the photos have to be scanned programmatically rather than traced by hand (so the geometry inherits the photo's real proportions instead of an artist's guess), and the fine rigging details — mast rake, boom height, batten slope, camber inducer positions — have to come from someone who actually knows how the physical object is trimmed. The code supplies precision; the domain expert supplies truth. Neither one is sufficient alone. See [`docs/PHOTO_TO_GEOMETRY.md`](docs/PHOTO_TO_GEOMETRY.md) for the reusable technique this produced, and [`docs/SAIL_RIGGING.md`](docs/SAIL_RIGGING.md) for how ~30 rounds of "move the boom up 15 cm" turned into a sail that actually looks rigged.
 
 ## Project structure
 
+```text
+windsurf-model/
+├── index.html                          Entry page: dark studio backdrop, caption, <script type="module">
+├── 026-Mach-9-render-final-lr-1.png    Sail catalog render — texture + silhouette (source of truth for the sail)
+├── board_bottom.png                    Top-down hull-bottom photo — texture for the underside of the board
+├── boom.png                            Top-down boom photo — texture + arm shape for the wishbone
+├── src/
+│   ├── main.js                         Renderer, lights, scene assembly, camera, OrbitControls, animation loop
+│   ├── util.js                         loadAndScan() (alpha silhouette scanner), smoothLuffX(), interp1() spline, taperedTube()
+│   ├── sailImage.js                    Scans the sail render → luff/leech curves, clew height, UV mapping
+│   ├── sail.js                         Parametric cloth surface: draft, twist, camber inducers, battens, luff sleeve, flutter
+│   ├── boomImage.js                    Scans the boom photo → left/right arm centerlines + thickness, UV texture
+│   ├── hardware.js                     Mast stub, wishbone boom, head/tail blocks, outhaul rope, mast foot
+│   ├── boardImage.js                   Scans deck + bottom photos → board outline, deck UVs, warped bottom texture
+│   ├── board.js                        Lofted superellipse hull, deck/hull materials, extruded fin
+│   └── board_map.png                   Top-down deck photo — outline + deck texture
+├── docs/
+│   ├── ARCHITECTURE.md                 System design: module graph, data flow, scene graph, rendering pipeline
+│   ├── PHOTO_TO_GEOMETRY.md            The core reusable technique — turning a product photo into 3D geometry + UVs
+│   ├── SAIL_RIGGING.md                 The parametric sail model in full: every constant, what it does, how it was measured
+│   ├── TROUBLESHOOTING.md              Gotchas hit during development, with symptom → cause → fix
+│   ├── DEVELOPMENT.md                  Dev workflow, verification loop, code conventions, how to extend the project
+│   └── superpowers/specs/              Original design spec from project kickoff
+├── package.json
+└── vite.config (implicit — no vite.config.js; Vite's zero-config defaults are used)
 ```
-index.html              Entry page, caption overlay, dark backdrop
-src/
-  main.js               Renderer, scene, lights, controls, animation loop
-  util.js               Image alpha scanning, splines, tapered tubes
-  sailImage.js          Load & scan sail catalog render → planform + UVs
-  sail.js               Parametric sail membrane, battens, sleeve, flutter
-  boomImage.js          Load & scan boom photo → arm paths + texture
-  hardware.js           Mast, boom, blocks, outhaul, mast base
-  boardImage.js         Load & scan deck/bottom photos → outline + UVs
-  board.js              Lofted hull mesh + fin
-  board_map.png         Top-down deck photo (outline + deck texture)
-026-Mach-9-render-final-lr-1.png   Sail catalog render (texture + outline)
-board_bottom.png        Bottom hull photo
-boom.png                Top-down boom photo
-docs/superpowers/specs/ Design notes
-```
+
+`026-Mega-render-final-lr-600-1.png` is present in the repo but not imported by any module — a leftover reference image, safe to ignore or delete.
 
 ## How it works
 
-### Image scanning (`util.js`)
+Every visible part of the kit is built the same way: **scan a photo → derive a parametric shape → loft geometry along that shape → texture it with the same photo.** No two parts share modeling code, but they all share this pipeline.
 
-`loadAndScan()` loads a PNG, reads pixel alpha per row, and returns left/right edge bounds. Rows map to a normalized parameter **u** (0 = bottom of content, 1 = top). Downstream modules scale edges to meters and build UV coordinates.
-
-### Sail pipeline
-
-1. **`sailImage.js`** — Scans the Severne catalog render. Derives luff/leech curves, clew height (boom position), and UV mapping. The PNG alpha provides the translucent window for free.
-2. **`sail.js`** — Builds a `(u, v)` parametric surface: **u** along the luff (foot → head), **v** across the chord (luff → leech). Adds 3D shaping (belly, twist, cam pockets), batten rods, luff sleeve, and per-frame leech flutter.
-3. **`hardware.js`** — Places mast stub, wishbone boom (traced from `boom.png`), head/tail blocks, outhaul, and mast foot.
-
-### Board pipeline
-
-1. **`boardImage.js`** — Scans top-down deck photo for width-at-station and deck UVs. Warps the bottom photo into the same frame for hull texture.
-2. **`board.js`** — Lofts superellipse cross-sections along length with thickness and rocker curves. Deck and hull halves use separate materials.
-
-### Scene assembly (`main.js`)
-
-```
-kit (floating group)
-├── board (hull + fin)
-└── rigPivot (rake + mast-track position)
-    └── rig
-        ├── sail (cloth + battens + sleeve)
-        └── hardware (mast, boom, rigging)
+```text
+PNG (alpha channel)
+   │
+   ▼
+loadAndScan()  ──►  per-row left/right edge in pixels
+   │
+   ▼
+shape descriptor  ──►  {  widthAt(t), luffX(u), edgeAt(u), uvFor(...)  }
+   │                     (pure functions closing over the scanned pixel data)
+   ▼
+geometry builder  ──►  THREE.BufferGeometry (custom vertex loops, not primitives)
+   │
+   ▼
+THREE.Mesh(geometry, material)  ──►  material.map = the same source photo
 ```
 
-Kit floats 0.5 m above a canvas-drawn radial shadow. Rig pivots at the mast track with ~19° aft rake.
+The **sail** gets the deepest treatment — on top of its scanned 2D outline, `sail.js` adds a full 3D camber model: draft depth, chordwise profile (flat entry behind the sleeve, swept up to max draft, eased to the leech), five hard camber inducers plus one soft one, a sloped batten grid with round rod geometry, four leech mini-battens, a luff sleeve that swallows the mast, and a per-frame flutter animation that damps to zero exactly at each batten line. The **board** is a lofted superellipse hull whose outline and both textures (deck and bottom) come from two photos warped into a shared UV frame. The **boom** traces both wishbone arms directly from a top-down photo's pixel data. See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full module graph and scene assembly, and [`docs/PHOTO_TO_GEOMETRY.md`](docs/PHOTO_TO_GEOMETRY.md) for the scanning technique itself.
 
 ## Coordinate systems
 
-| Part | Axes |
-|------|------|
-| **Sail / rig** | Tack at origin. **y** = height (foot → head). **x** = chord (luff → leech). **z** = draft (belly/leeward). |
-| **Board** | Bottom rocker at **y** = 0. Tail at **+x**, nose at **−x**. Mast track at **x** = 0. |
+Three independent local coordinate systems exist, composed in `main.js` via nested `THREE.Group`s:
+
+| Space | Parameterization | Notes |
+|---|---|---|
+| **Sail / rig** | `u` = 0 at the tack → 1 at the head, along the luff. `v` = 0 at the luff → 1 at the leech, across the chord. World axes: **y** = height, **x** = chord, **z** = draft (belly bulges toward +z). | Tack sits at the local origin; the mast foot is a small negative-y offset below it. |
+| **Board** | `t` = 0 at the tail (image bottom) → 1 at the nose (image top). `s` = 0 → 1 across the width at each station. World axes: **y** = 0 at the bottom rocker line, **x**: tail at +x, nose at −x, mast track at x = 0. | Board-local +x deliberately matches the clew side of the rig, so rig rake and board tail point the same direction. |
+| **Boom** | `d` = pixels behind the boom's front edge (image top = mast clamp). Left/right arms tracked independently as `{ centerPx, radiusPx }` per row. | Converted to meters via `metersPerPixel = boomLengthMeters / boomLengthPixels`, computed once the boom is scaled against the sail's scanned clew position. |
+
+`main.js` composes them as: `kit` (floats above the shadow) → `rigPivot` (rake rotation + mast-track offset, in board space) → `rig` (tack-to-deck gap) → `sail` mesh + `hardware` group (in sail/rig space).
 
 ## Required assets
 
-These PNG files must be present (user-supplied catalog photos):
+Four PNGs, all with clean alpha channels, must be present for the app to build a kit. Nothing is bundled with the repo as a placeholder — swap these to re-skin the whole model.
 
-| File | Purpose |
-|------|---------|
-| `026-Mach-9-render-final-lr-1.png` | Sail texture and silhouette |
-| `src/board_map.png` | Deck outline and deck texture |
-| `board_bottom.png` | Hull bottom texture |
-| `boom.png` | Boom arms and texture |
+| File | Location | Dimensions | Drives |
+|---|---|---|---|
+| `026-Mach-9-render-final-lr-1.png` | repo root | 800 × 1478 | Sail silhouette, luff/leech curves, clew height, all sail texture (including the translucent window, via alpha) |
+| `src/board_map.png` | `src/` | 217 × 786 | Board outline, width profile, deck texture |
+| `board_bottom.png` | repo root | 219 × 789 | Hull-bottom texture (warped into the deck photo's UV frame) |
+| `boom.png` | repo root | 106 × 354 | Both wishbone arm shapes and the boom's top/bottom texture |
 
-Images should have clean alpha edges. The sail scan uses alpha threshold 20 so the translucent window panel still counts as inside the sail.
+Alpha edges should be clean (no soft drop shadow baked into the alpha) — the scanner uses a fixed alpha threshold of 20/255 per pixel, chosen so the sail's translucent window (~alpha 27) still reads as "inside the sail" without pulling in stray shadow pixels. See [`docs/PHOTO_TO_GEOMETRY.md`](docs/PHOTO_TO_GEOMETRY.md#preparing-a-source-photo) before substituting your own photos.
 
-## Development notes
+## Customization cheat sheet
 
-- **Dev geometry check** — In development mode, `main.js` traverses all meshes and throws if any vertex position is non-finite.
-- **Materials** — Deck/sail photos have baked lighting; env-map intensity is kept low to avoid washing out detail.
-- **Performance** — Pixel ratio capped at 2. Sail mesh is 260×36 segments to resolve pocket ridges.
+| I want to... | Edit | What to change |
+|---|---|---|
+| Swap the sail graphic entirely | `src/sailImage.js` | The `sailUrl` import — new photo must have transparent background and be shot square-on |
+| Change sail size / proportions | `src/sailImage.js` | `HEIGHT` constant (rigged luff length, meters) |
+| Move a batten | `src/sail.js` | `BATTENS` array — `{ u, du }` = luff-end position, leech-end drop |
+| Add/remove camber inducers | `src/sail.js` | `CAMS` (hard cams) / `SOFT_CAM` (soft cam) — both derive from `BATTENS`, so move the batten first |
+| Change draft depth or entry shape | `src/sail.js` | `DRAFT_PTS` (depth by height) / `PROFILE_PTS` & `CAM_PROFILE_PTS` (chordwise shape) |
+| Adjust flutter intensity | `src/sail.js` | The `0.011` amplitude coefficient in `update()` |
+| Re-rake the rig | `src/main.js` | `RIG_RAKE` (radians, negative = aft) |
+| Move the mast foot on the track | `src/main.js` | `rigPivot.position.set(x, DECK_AT_TRACK, 0)` — x is fore/aft offset in meters |
+| Change tack-to-deck gap | `src/main.js` | `rig.position.y` |
+| Retrim the boom | `src/hardware.js` | `yAt()` height curve, and the endpoint constants near `head`/`tail` block placement |
+| Resize the board | `src/board.js` | `LEN`, `TAIL_X`, `THICK_PTS`, `ROCKER_PTS` |
+| Change studio lighting | `src/main.js` | `key`/`rim` `DirectionalLight`s, `scene.environmentIntensity` |
+| Change camera framing | `src/main.js` | `frameKit()`, `controls.target`, `camera.fov` |
 
-## Possible extensions
+For anything involving photo-derived numbers (batten positions, draft profile), don't guess — measure it from the source PNG the way [`docs/SAIL_RIGGING.md`](docs/SAIL_RIGGING.md#measuring-features-from-a-photo) describes. Eyeballing pixel coordinates from a screenshot is how the batten positions ended up wrong three times during development.
 
-Not implemented yet: size/configurator UI, spec hotspots, water scene, footstraps.
+## Documentation
+
+| Document | Covers |
+|---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Module dependency graph, data flow, scene graph, rendering pipeline, performance profile |
+| [`docs/PHOTO_TO_GEOMETRY.md`](docs/PHOTO_TO_GEOMETRY.md) | The reusable photo-scanning technique: alpha silhouette extraction, UV strategies, texture-matte tricks, when to use each pattern |
+| [`docs/SAIL_RIGGING.md`](docs/SAIL_RIGGING.md) | The parametric sail model constant-by-constant, plus the methodology for measuring rigging features from a photo |
+| [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | Every real bug hit during development, as symptom → root cause → fix → general lesson |
+| [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | Dev workflow, the visual verification loop, code conventions, how to add a new photo-mapped part |
+
+## Performance
+
+- **Draw calls**: on the order of 25 meshes total (one sail cloth mesh, two batten-rod tubes per batten × 7 + 4 mini-battens, one sleeve, two boom-arm tubes, two outhaul strands, several small hardware primitives, one two-material board hull, one fin).
+- **Heaviest mesh**: the sail cloth is a 260 × 36 vertex grid (~9,500 vertices) — deliberately fine along the luff direction to resolve the batten pocket ridges and the camber-to-flat profile transition without visible faceting.
+- **Per-frame cost**: the flutter animation rewrites the sail's Z positions and calls `computeVertexNormals()` every frame — the only steady-state CPU cost in the render loop. Everything else (board, hardware, boom) is static geometry built once at load.
+- **Textures**: four source photos plus two canvas-composited derivatives (bottom-hull warp, boom photo-over-matte) — all well under 1 MB combined, and none are procedurally regenerated after load.
+- **Pixel ratio** is capped at 2 regardless of device pixel ratio, to bound fragment shader cost on high-DPI displays.
+
+## Browser support
+
+Requires WebGL2 (via Three.js's `WebGLRenderer`) and ES modules. Tested against current Chrome/Chromium. `RoomEnvironment` PMREM generation and `MeshPhysicalMaterial` clearcoat are both standard Three.js features with broad support; no experimental APIs are used.
+
+## Known limitations
+
+- The fin is the one part *not* derived from a photo — its profile is a hand-drawn `THREE.Shape`. A fin photo would complete the pipeline.
+- The board's thickness and rocker curves (`THICK_PTS`, `ROCKER_PTS` in `board.js`) are estimated, not scanned — only the plan-view outline and textures are photo-derived.
+- At grazing viewing angles the sail's clearcoat can read as a silvery sheen on the reverse side, slightly washing out the print.
+- No configurator, spec hotspots, or water/environment scene — this is a clean studio product shot, not a full marketing site (see the [design spec](docs/superpowers/specs/) for what was deliberately scoped out).
+
+## Tech stack
+
+- [Three.js](https://threejs.org/) `^0.172.0` — the only runtime dependency
+- [Vite](https://vitejs.dev/) `^6.0.7` — dev server and bundler, zero-config
+- Plain JavaScript (ES modules), no framework, no build-time type system, no CSS framework
 
 ## License
 
-Private project (`package.json`: `"private": true`).
+Private project (`package.json`: `"private": true`). Product photography and the Severne name/branding belong to their respective owner and are used here for a non-commercial demonstration of the modeling technique.
