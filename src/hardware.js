@@ -43,7 +43,7 @@ export function createHardware(shape, boom) {
       const { c, r } = smp[side];
       pts.push(new THREE.Vector3(
         bx + smp.d * mpp,
-        by + 0.11 - 0.15 * Math.pow(smp.d / boom.length, 1.1), // front raised, sloping aft
+        by + 0.26 - 0.27 * Math.pow(smp.d / boom.length, 1.1), // front raised, sloping aft
         (c - boom.centerX) * mpp,
       ));
       radii.push(THREE.MathUtils.clamp(r * mpp, 0.008, 0.026)); // rope merges guard
@@ -61,11 +61,11 @@ export function createHardware(shape, boom) {
     }
     g.add(new THREE.Mesh(geo, boomMat));
   }
-  const head = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, 0.11), carbon);
-  head.position.set(bx + 0.01, by + 0.11, 0);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.065, 0.085, 0.075), carbon);
+  head.position.set(bx + 0.01, by + 0.26, 0);
   g.add(head);
-  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.12), carbon);
-  tail.position.set(bx + ch + 0.08, by - 0.04, 0);
+  const tail = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.06, 0.08), carbon);
+  tail.position.set(bx + ch + 0.08, by - 0.01, 0);
   g.add(tail);
 
   // Short mast foot: collar at the mast base + small universal joint to the deck.
