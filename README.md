@@ -1,6 +1,9 @@
 # Severne Mach — 3D Showcase
 
+[![Live demo](https://img.shields.io/badge/live%20demo-winsurfmodel.netlify.app-00c7b7?logo=netlify&logoColor=white)](https://winsurfmodel.netlify.app)
 [![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ea4aaa?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/hughes-research)
+
+**[→ Try the live demo](https://winsurfmodel.netlify.app)** — no install required, orbits and loads straight in the browser.
 
 A photorealistic, fully procedural 3D viewer for a Severne Mach slalom windsurf kit — 6.5 m² cambered race sail, mast, wishbone boom, slalom board, and fin — rendered in the browser with [Three.js](https://threejs.org/). There is no 3D-modeled asset anywhere in this project: every mesh is generated from math at load time, and every texture and silhouette is extracted from the manufacturer's own catalog photography. Four PNGs in, one interactive rig out.
 
@@ -44,7 +47,9 @@ The work — the code, the photo-to-geometry pipeline, all of it — is free: GP
 
 ## Quick start
 
-Requires [Node.js](https://nodejs.org/) 18 or later.
+Just want to look at the kit? **[winsurfmodel.netlify.app](https://winsurfmodel.netlify.app)** — nothing to install.
+
+To run it locally, requires [Node.js](https://nodejs.org/) 18 or later.
 
 ```bash
 npm install
