@@ -5,8 +5,24 @@ import { interp1 } from './util.js';
 // ~40% back from the luff, deepest near boom height, leech twist up high.
 const DRAFT_PTS = [[0, 0.06], [0.235, 0.095], [0.5, 0.075], [0.8, 0.038], [1, 0.008]];
 
+// Batten u-positions measured from the dark stripes in the catalog render
+// (two interpolated where black print hides them). Pockets bulge to the
+// belly side as gaussian ridges.
+const BATTENS = [0.16, 0.3, 0.435, 0.58, 0.7, 0.83, 0.95];
+const POCKET_SIGMA = 0.009, POCKET_HEIGHT = 0.012;
+function pocketBulge(u, v) {
+  let b = 0;
+  for (const ub of BATTENS) {
+    const x = (u - ub) / POCKET_SIGMA;
+    b += Math.exp(-x * x);
+  }
+  // pockets stop at the mast sleeve and taper before the leech edge
+  const fade = Math.max(0, Math.min(1, (v - 0.1) * 10, (0.98 - v) * 15));
+  return POCKET_HEIGHT * b * fade;
+}
+
 export function createSail(shape) {
-  const NU = 96, NV = 36;
+  const NU = 260, NV = 36; // NU fine enough to resolve the pocket ridges
   const count = (NU + 1) * (NV + 1);
   const pos = new Float32Array(count * 3);
   const uv = new Float32Array(count * 2);
@@ -21,7 +37,7 @@ export function createSail(shape) {
       const v = j / NV;
       const belly = interp1(DRAFT_PTS, u) * chord * Math.sin(Math.PI * Math.pow(v, 0.75));
       const twist = 0.55 * u * u * v * chord; // parabolic: head falls open to leeward
-      pos.set([xl + v * chord, u * shape.height, belly + twist], k * 3);
+      pos.set([xl + v * chord, u * shape.height, belly + twist + pocketBulge(u, v)], k * 3);
       uv.set(shape.uvFor(u, v), k * 2);
       params.set([v, u], k * 2);
       k++;
