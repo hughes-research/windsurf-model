@@ -10,13 +10,13 @@ const DRAFT_PTS = [[0, 0.06], [0.235, 0.095], [0.5, 0.075], [0.8, 0.038], [1, 0.
 // du = how far the rod's rear drops by the leech (u units — lower battens
 // fan downward aft). Pockets bulge to the belly side as gaussian ridges.
 const BATTENS = [
-  { u: 0.16, du: 0.0235 }, // rear down 10 cm
-  { u: 0.3, du: 0.0165 },  // rear down 7 cm
+  { u: 0.16, du: 0.0235 },     // rear down 10 cm (user-calibrated)
+  { u: 0.3, du: 0.0165 },      // rear down 7 cm (user-calibrated)
   { u: 0.435, du: 0 },
   { u: 0.58, du: 0 },
-  { u: 0.7, du: 0 },
-  { u: 0.83, du: 0 },
-  { u: 0.95, du: 0 },
+  { u: 0.732, du: 0.011 },     // measured: slight drop aft
+  { u: 0.834, du: -0.034 },    // measured: upper battens fan upward aft
+  { u: 0.9365, du: -0.047 },
 ];
 const POCKET_SIGMA = 0.009, POCKET_HEIGHT = 0.006; // residual cloth tension over the rod
 function pocketBulge(u, v) {
