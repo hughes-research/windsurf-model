@@ -8,8 +8,18 @@ export async function loadBoardShape(length) {
   const { img, W, H, top, bottom, rowAt, edgeAt } = await loadAndScan(boardUrl);
   const scale = length / (bottom - top);
 
-  const texture = new THREE.Texture(img);
-  texture.needsUpdate = true;
+  // Composite over a deck-red matte so mipmaps blend toward board color
+  // instead of the PNG background's white.
+  const c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#6f0d12';
+  ctx.fillRect(0, 0, W, H);
+  // The export runs light/pink vs the real deck — pull it toward deep crimson.
+  ctx.filter = 'brightness(0.85) saturate(1.25) contrast(1.05)';
+  ctx.drawImage(img, 0, 0);
+  ctx.filter = 'none';
+  const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = 8;
 

@@ -48,8 +48,10 @@ export function createBoard(shape) {
   geo.addGroup(0, idxDeck.length, 0);
   geo.addGroup(idxDeck.length, idxHull.length, 1);
   geo.computeVertexNormals();
+  // The deck photo has baked lighting — keep added light flat so it doesn't wash out.
   const deckMat = new THREE.MeshPhysicalMaterial({
-    map: shape.texture, roughness: 0.5, metalness: 0, clearcoat: 0.15, clearcoatRoughness: 0.5,
+    map: shape.texture, color: 0xe4e4e4, roughness: 0.85, metalness: 0,
+    clearcoat: 0.06, clearcoatRoughness: 0.6, envMapIntensity: 0.35,
   });
   const hullMat = new THREE.MeshPhysicalMaterial({
     color: 0xeef0f2, roughness: 0.25, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.2,
